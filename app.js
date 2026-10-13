@@ -52,6 +52,7 @@
   function applyRoute() {
     var h = readHash();
     if (!h || h === 'home') { state.view = 'home'; state.country = ''; state.focusTopic = null; return; }
+    if (h === 'disclaimer' || h === 'about/disclaimer') { state.view = 'disclaimer'; state.country = ''; state.focusTopic = null; return; }
     if (h === 'about' || h.indexOf('about/') === 0) {
       state.view = 'about'; state.country = ''; state.focusTopic = null;
       state.aboutSection = h.split('/')[1] || null;
@@ -162,6 +163,7 @@
       if (a.dataset.nav === state.view) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
     });
     if (state.view === 'home') { renderHome(); return; }
+    if (state.view === 'disclaimer') { renderDisclaimer(); return; }
     if (state.view === 'about') {
       renderAbout();
       if (state.aboutSection) {
@@ -342,6 +344,34 @@
     ];
   }
 
+  function disclaimerItems() {
+    function item(b, t) { return el('li', {}, [el('b', { text: b + ' ' }), document.createTextNode(t)]); }
+    return el('ul', { class: 'about-list' }, [
+      item('A neutral platform.', 'Both Sides is a non-commercial platform where users set out arguments on public questions. Neither the platform nor its creator is affiliated with any government, political party, campaign, candidate or advocacy group.'),
+      item('The creator takes no position.', 'The creator and the reviewers of Both Sides do not endorse, support or promote any position, party, candidate or cause, including any argument published on this site. The platform exists to present arguments from every side, not to argue for one.'),
+      item('All content is written by users.', 'Every debate and argument on Both Sides is written by a user and reflects only that user’s views. Nothing published here represents the personal views of the platform’s creator or reviewers.'),
+      item('Approval is not agreement.', 'When a reviewer approves a contribution, it only means the contribution meets the published rules. It does not mean the creator or reviewers agree with it.'),
+      item('Notes and summaries are not opinions on the issue.', 'Notes and “Where the discussion stands” summaries are drafted by AI and describe how the arguments are made and what the evidence shows. They are not written by, and do not express the view of, the creator or reviewers.'),
+      item('Information only.', 'Content on Both Sides is for information and discussion. It is not legal, financial or professional advice.')
+    ]);
+  }
+
+  function renderDisclaimer() {
+    content.appendChild(el('article', { class: 'about' }, [
+      el('header', { class: 'about-head' }, [
+        el('p', { class: 'hero-kicker', text: 'Disclaimer' }),
+        el('h1', { class: 'about-title', text: 'Independence and disclaimer' }),
+        el('p', { class: 'hero-lead', text: 'Both Sides presents arguments from every side. It does not take one.' })
+      ]),
+      el('section', { class: 'about-section', id: 'disclaimer' }, [disclaimerItems()]),
+      el('div', { class: 'about-cta' }, [
+        el('a', { class: 'btn btn-dark as-link', href: '#home', text: 'Back to the debates' }),
+        document.createTextNode(' '),
+        el('a', { class: 'btn btn-plain as-link', href: '#about', text: 'How Both Sides works' })
+      ])
+    ]));
+  }
+
   function renderAbout() {
     if (state.aiEnabled === undefined) {
       fetch('/api/check').then(function (r) { return r.ok ? r.json() : { enabled: false }; }).catch(function () { return { enabled: false }; })
@@ -420,15 +450,9 @@
 
       section('ai', 'What AI does', [el('div', { id: 'ai-text' }, aiParagraphs(state.aiEnabled))]),
 
-      section('disclaimer', 'Independence and disclaimer', [
-        el('ul', { class: 'about-list' }, [
-          item('A neutral platform.', 'Both Sides is a non-commercial platform where users set out arguments on public questions. Neither the platform nor its creator is affiliated with any government, political party, campaign, candidate or advocacy group.'),
-          item('The creator takes no position.', 'The creator and the reviewers of Both Sides do not endorse, support or promote any position, party, candidate or cause, including any argument published on this site. The platform exists to present arguments from every side, not to argue for one.'),
-          item('All content is written by users.', 'Every debate and argument on Both Sides is written by a user and reflects only that user’s views. Nothing published here represents the personal views of the platform’s creator or reviewers.'),
-          item('Approval is not agreement.', 'When a reviewer approves a contribution, it only means the contribution meets the published rules. It does not mean the creator or reviewers agree with it.'),
-          item('Notes and summaries are not opinions on the issue.', 'Notes and “Where the discussion stands” summaries are drafted by AI and describe how the arguments are made and what the evidence shows. They are not written by, and do not express the view of, the creator or reviewers.'),
-          item('Information only.', 'Content on Both Sides is for information and discussion. It is not legal, financial or professional advice.')
-        ])
+      section('disclaimer-summary', 'Independence and disclaimer', [
+        para('Both Sides is a neutral, non-commercial platform. Its creator and reviewers take no position on any issue, and all debates and arguments are written by users.'),
+        el('p', {}, [el('a', { href: '#disclaimer', text: 'Read the full disclaimer →' })])
       ]),
 
       el('div', { class: 'about-cta' }, [
