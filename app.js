@@ -148,12 +148,11 @@
 
     if (!topics.length && !newTopicPending.length && country) {
       // An empty country: invite the first debate straight away, with the form already open.
-      var intro = el('section', { class: 'topic' }, [
-        el('div', { class: 'topic-head' }, [el('h1', { text: country.name })]),
-        el('p', { class: 'muted', text: 'No debates here yet. Start the first one: write a statement people can agree or disagree with, and the strongest argument on each side.' })
-      ]);
-      intro.appendChild(debateForm({ country: country, open: true }));
-      content.appendChild(intro);
+      content.appendChild(el('div', { class: 'country-head' }, [
+        el('h1', { text: country.name }),
+        el('p', { class: 'sub', text: 'No debates here yet. Start the first one: a statement people can agree or disagree with, and the strongest argument on each side.' })
+      ]));
+      content.appendChild(debateForm({ country: country, open: true }));
       return;
     }
 
@@ -174,7 +173,7 @@
     if (list.children.length) {
       var head = el('div', { class: 'country-head' }, [
         el('h1', { text: country ? country.name : '' }),
-        el('span', { class: 'muted small', text: topics.length + (topics.length === 1 ? ' topic' : ' topics') + ' · click a topic to open it' })
+        el('p', { class: 'sub', text: topics.length + (topics.length === 1 ? ' topic' : ' topics') + '. Open a topic to see each debate, with arguments for and against side by side.' })
       ]);
       content.appendChild(head);
       content.appendChild(list);
@@ -245,7 +244,7 @@
   function renderTopic(topic, pending, onlyOne) {
     var stmts = state.data.statements.filter(function (s) { return s.topic_id === topic.id; });
     var shell = topicShell('t' + topic.id, topic.title,
-      stmts.length + (stmts.length === 1 ? ' debate' : ' debates'), null, onlyOne || pending.length > 0);
+      stmts.length ? stmts.length + (stmts.length === 1 ? ' debate' : ' debates') : 'No debates yet', null, onlyOne || pending.length > 0);
     var section = shell.body;
 
     if (!stmts.length && !pending.length) {
