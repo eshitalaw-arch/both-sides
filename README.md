@@ -39,7 +39,7 @@ Sign in at **/review.html** (link in the site footer). First time: choose "First
 - **Live content:** delete a debate, an argument, a whole topic, or a country tab.
 - **Decision log:** every approval, rejection and deletion, with who made it.
 
-**Adding a reviewer:** add their email to the `admins` table (Supabase → Table Editor → admins → Insert row). They then create a password on the review page and confirm their email.
+**Adding a reviewer (only the owner can):** 1) Supabase → Authentication → Users → Add user → Create new user, with their email and a password, ticking "Auto confirm user". 2) Table Editor → admins → Insert row with their email in lowercase. There is no public sign-up; keep "Allow new users to sign up" switched off in Supabase → Authentication.
 
 - **Where the discussion stands:** in Live content, use "Write summary" / "Edit summary" under any debate. Saving sets today as the reviewed date.
 

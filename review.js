@@ -78,7 +78,7 @@
     if (msg) { $('signin-msg').className = 'form-msg err'; $('signin-msg').textContent = msg; }
   }
 
-  $('mode-toggle').addEventListener('click', function () {
+  if ($('mode-toggle')) $('mode-toggle').addEventListener('click', function () {
     state.signup = !state.signup;
     $('signin-btn').textContent = state.signup ? 'Create password' : 'Sign in';
     $('mode-toggle').textContent = state.signup ? 'I already have a password' : 'First time? Create a password';
