@@ -16,7 +16,8 @@
   };
 
   var tabsNav = document.getElementById('tabs');
-  var state = { country: readHash(), countries: [], data: null, expanded: {}, open: {} };
+  var state = { view: 'home', country: '', focusTopic: null, countries: [], data: null, expanded: {}, open: {} };
+  applyRoute();
   var db = null;
 
   // ---------- helpers ----------
@@ -47,12 +48,23 @@
     try { return decodeURIComponent((location.hash || '').replace('#', '')); } catch (e) { return ''; }
   }
 
+  // Links: "#" or "#home" = front page, "#india" = a country, "#india/12" = a country with topic 12 opened.
+  function applyRoute() {
+    var h = readHash();
+    if (!h || h === 'home') { state.view = 'home'; state.country = ''; state.focusTopic = null; return; }
+    var parts = h.split('/');
+    state.view = 'country';
+    state.country = parts[0];
+    state.focusTopic = parts[1] || null;
+    if (state.focusTopic) state.open['t' + state.focusTopic] = true;
+  }
+
   // Used only if the countries table hasn't been created yet.
   var FALLBACK_NAMES = { india: 'India', us: 'United States' };
 
   function pickCountry() {
     var codes = state.countries.map(function (c) { return c.code; });
-    if (codes.indexOf(state.country) === -1) state.country = codes[0] || '';
+    if (state.view === 'country' && codes.indexOf(state.country) === -1) { state.view = 'home'; state.country = ''; }
   }
 
   function showNotice(msg) {
@@ -140,8 +152,15 @@
     renderCountryNotes();
     content.innerHTML = '';
     if (!state.data) return;
+    document.body.classList.toggle('is-home', state.view === 'home');
+    if (state.view === 'home') { renderHome(); return; }
 
     var country = currentCountry();
+    if (state.focusTopic) {
+      var target = state.focusTopic;
+      setTimeout(function () { var t = document.getElementById('topic-t' + target); if (t) t.scrollIntoView({ block: 'start' }); }, 0);
+      state.focusTopic = null;
+    }
     var topics = state.data.topics.filter(function (t) { return t.country === state.country; });
     var pending = readPending().filter(function (p) { return p.type === 'debate' && p.country === state.country; });
     var newTopicPending = pending.filter(function (p) { return !p.topicId; });
@@ -182,6 +201,100 @@
     if (country) content.appendChild(renderStartDebate(country));
   }
 
+  // ---------- front page ----------
+  function plural(n, one, many) { return n + ' ' + (n === 1 ? one : many); }
+
+  function renderHome() {
+    var D = state.data;
+    var nDebates = D.statements.length, nArgs = D.reasons.length;
+
+    content.appendChild(el('section', { class: 'hero' }, [
+      el('p', { class: 'hero-kicker', text: 'Both Sides' }),
+      el('h1', { class: 'hero-title', text: 'See both sides of the debates everyone is having.' }),
+      el('p', { class: 'hero-lead', text: 'News and posts usually show one side and ignore the other. Here, each debate is one simple table: the statement, the strongest arguments in favor, and the strongest arguments against, side by side.' }),
+      el('div', { class: 'hero-actions' }, [
+        el('a', { class: 'btn btn-dark as-link', href: '#countries', text: 'Browse the debates', onclick: function (e) { e.preventDefault(); var t = document.getElementById('countries'); if (t) t.scrollIntoView({ behavior: 'smooth' }); } }),
+        state.countries[0] ? el('a', { class: 'btn btn-plain as-link', href: '#' + state.countries[0].code, text: 'Start a debate' }) : null
+      ]),
+      el('ul', { class: 'hero-stats' }, [
+        el('li', {}, [el('b', { text: String(state.countries.length) }), el('span', { text: state.countries.length === 1 ? ' country' : ' countries' })]),
+        el('li', {}, [el('b', { text: String(D.topics.length) }), el('span', { text: D.topics.length === 1 ? ' topic' : ' topics' })]),
+        el('li', {}, [el('b', { text: String(nDebates) }), el('span', { text: nDebates === 1 ? ' debate' : ' debates' })]),
+        el('li', {}, [el('b', { text: String(nArgs) }), el('span', { text: nArgs === 1 ? ' argument' : ' arguments' })])
+      ])
+    ]));
+
+    content.appendChild(el('section', { class: 'home-section', 'aria-labelledby': 'how' }, [
+      el('h2', { id: 'how', text: 'How it works' }),
+      el('ol', { class: 'steps' }, [
+        el('li', {}, [el('span', { class: 'step-n', text: '1' }), el('h3', { text: 'Pick a country and topic' }), el('p', { text: 'Topics are the big issues, like “Election Commission protests” or “Immigration”.' })]),
+        el('li', {}, [el('span', { class: 'step-n', text: '2' }), el('h3', { text: 'Read both sides' }), el('p', { text: 'Each debate shows the arguments for and against next to each other, so neither side is left out.' })]),
+        el('li', {}, [el('span', { class: 'step-n', text: '3' }), el('h3', { text: 'Add your argument' }), el('p', { text: 'Post anonymously or under your name. A reviewer checks every contribution before it goes live.' })])
+      ])
+    ]));
+
+    var countriesSec = el('section', { class: 'home-section', id: 'countries', 'aria-labelledby': 'countries-h' }, [
+      el('h2', { id: 'countries-h', text: 'Explore by country' })
+    ]);
+    var grid = el('div', { class: 'country-grid' });
+    state.countries.forEach(function (c) {
+      var topics = D.topics.filter(function (t) { return t.country === c.code; });
+      var tIds = topics.map(function (t) { return t.id; });
+      var debates = D.statements.filter(function (s) { return tIds.indexOf(s.topic_id) !== -1; });
+      var list = el('ul', { class: 'topic-links' });
+      topics.slice(0, 6).forEach(function (t) {
+        var n = D.statements.filter(function (s) { return s.topic_id === t.id; }).length;
+        list.appendChild(el('li', {}, [
+          el('a', { href: '#' + c.code + '/' + t.id, text: t.title }),
+          el('span', { class: 'muted small', text: n ? plural(n, 'debate', 'debates') : 'no debates yet' })
+        ]));
+      });
+      if (topics.length > 6) list.appendChild(el('li', {}, [el('a', { href: '#' + c.code, text: '+ ' + (topics.length - 6) + ' more topics' })]));
+      grid.appendChild(el('article', { class: 'country-card' }, [
+        el('h3', {}, [el('a', { href: '#' + c.code, text: c.name })]),
+        el('p', { class: 'muted small', text: topics.length ? plural(topics.length, 'topic', 'topics') + ' · ' + plural(debates.length, 'debate', 'debates') : 'No debates yet. Be the first to start one.' }),
+        topics.length ? list : null,
+        el('a', { class: 'card-link', href: '#' + c.code, text: topics.length ? 'Open ' + c.name + ' →' : 'Start the first debate →' })
+      ]));
+    });
+    countriesSec.appendChild(grid);
+    countriesSec.appendChild(el('p', { class: 'muted small', text: 'Don’t see a country? Use “Suggest a country” at the top of the page.' }));
+    content.appendChild(countriesSec);
+
+    var latest = D.statements.slice().sort(function (a, b) { return String(b.created_at || '').localeCompare(String(a.created_at || '')); }).slice(0, 5);
+    if (latest.length) {
+      var latestSec = el('section', { class: 'home-section', 'aria-labelledby': 'latest-h' }, [el('h2', { id: 'latest-h', text: 'Latest debates' })]);
+      var ul = el('ul', { class: 'latest' });
+      latest.forEach(function (s) {
+        var t = D.topics.filter(function (x) { return x.id === s.topic_id; })[0];
+        if (!t) return;
+        var c = state.countries.filter(function (x) { return x.code === t.country; })[0];
+        var nf = D.reasons.filter(function (r) { return r.statement_id === s.id && r.side === 'favor'; }).length;
+        var na = D.reasons.filter(function (r) { return r.statement_id === s.id && r.side === 'against'; }).length;
+        ul.appendChild(el('li', {}, [el('a', { href: '#' + t.country + '/' + t.id }, [
+          el('span', { class: 'crumb', text: (c ? c.name : t.country) + ' › ' + t.title }),
+          el('span', { class: 'latest-text', text: s.text }),
+          el('span', { class: 'latest-counts' }, [
+            el('span', { class: 'pill-favor', text: plural(nf, 'argument', 'arguments') + ' for' }),
+            el('span', { class: 'pill-against', text: plural(na, 'argument', 'arguments') + ' against' })
+          ])
+        ])]));
+      });
+      latestSec.appendChild(ul);
+      content.appendChild(latestSec);
+    }
+
+    content.appendChild(el('section', { class: 'home-section fair', 'aria-labelledby': 'fair-h' }, [
+      el('h2', { id: 'fair-h', text: 'How we keep it fair' }),
+      el('ul', { class: 'fair-list' }, [
+        el('li', {}, [el('b', { text: 'Reviewed first. ' }), document.createTextNode('Every debate and argument is checked by a reviewer before it appears. Abuse and personal attacks are not published.')]),
+        el('li', {}, [el('b', { text: 'Reasons, not verdicts. ' }), document.createTextNode('Some arguments carry a tag such as “Needs evidence” or “Strong”. Tap it to see why. Most carry none.')]),
+        el('li', {}, [el('b', { text: 'No winners declared. ' }), document.createTextNode('“Where the debate stands” sums up what the evidence supports and what the answer depends on. It never picks a side.')]),
+        el('li', {}, [el('b', { text: 'Your choice of name. ' }), document.createTextNode('Contribute anonymously or under your own name.')])
+      ])
+    ]));
+  }
+
   function currentCountry() {
     return state.countries.filter(function (c) { return c.code === state.country; })[0] || null;
   }
@@ -214,10 +327,13 @@
     state.countries.forEach(function (c) {
       tabsNav.appendChild(el('button', {
         type: 'button', class: 'tab', text: c.name,
-        'aria-pressed': c.code === state.country ? 'true' : 'false',
+        'aria-pressed': state.view === 'country' && c.code === state.country ? 'true' : 'false',
         onclick: function () {
+          state.view = 'country';
           state.country = c.code;
-          history.replaceState(null, '', '#' + encodeURIComponent(c.code));
+          state.focusTopic = null;
+          history.pushState(null, '', '#' + encodeURIComponent(c.code));
+          window.scrollTo(0, 0);
           render();
         }
       }));
@@ -226,7 +342,7 @@
 
   function topicShell(key, title, countText, extra, openByDefault) {
     var isOpen = state.open[key] !== undefined ? state.open[key] : openByDefault;
-    var details = el('details', { class: 'topic' });
+    var details = el('details', { class: 'topic', id: 'topic-' + key });
     details.open = !!isOpen;
     details.addEventListener('toggle', function () { state.open[key] = details.open; });
     var summary = el('summary', { class: 'topic-summary' }, [
@@ -561,7 +677,9 @@
     countrySlot.appendChild(countryForm(function () { suggestBtn.hidden = false; suggestBtn.focus(); }));
   });
 
-  window.addEventListener('hashchange', function () { state.country = readHash(); pickCountry(); render(); });
+  function onRoute() { applyRoute(); pickCountry(); render(); if (state.view === 'home') window.scrollTo(0, 0); }
+  window.addEventListener('hashchange', onRoute);
+  window.addEventListener('popstate', onRoute);
 
   if (configured && window.supabase) {
     db = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
