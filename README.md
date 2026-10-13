@@ -48,3 +48,14 @@ You can still edit anything directly in Supabase → Table Editor, e.g. to add t
 ## Upgrading an older database
 
 For a database set up before these features, run these once each, in order, in the SQL Editor: `supabase/add-countries.sql`, `supabase/add-suggestions.sql`, `supabase/review-and-debates.sql`, `supabase/summaries.sql`. All are safe to run again. A brand-new database needs `schema.sql`, then `review-and-debates.sql`, then `summaries.sql`.
+
+## AI features
+
+AI runs in two small server functions on Vercel (`api/check.js`, `api/assist.js`). The key is never in the code.
+
+- **Tone check** (visitors): when someone submits a debate or argument, AI checks for insults, threats, hate, private details, spam or swearing, and suggests kinder wording. It only warns; the writer can post anyway and a reviewer decides. It never judges viewpoints. If the AI is unavailable, posting works as normal.
+- **Drafts** (reviewers only): "Draft with AI" in the summary editor and "Suggest notes with AI" under each live debate. Nothing is saved until a reviewer presses Save / Apply.
+
+**To switch it on:** create an API key at console.anthropic.com, then in Vercel → the `both-sides` project → Settings → Environment Variables, add `ANTHROPIC_API_KEY` with the key, and redeploy. Remove the variable to switch AI off; the About page updates itself either way. Optional: `AI_MODEL` to use a different Claude model.
+
+For saving notes from the review page, run `supabase/notes.sql` once in the SQL Editor.

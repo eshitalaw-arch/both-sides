@@ -290,7 +290,31 @@
   }
 
   // ---------- About ----------
+  function aiParagraphs(on) {
+    function p(t) { return el('p', { text: t }); }
+    if (!on) return [
+      p('At the moment, Both Sides does not use AI to publish or judge anything. Reviews, notes and summaries are written by people.'),
+      p('We plan to use AI to help: checking tone when someone submits, and drafting summaries for reviewers. Any AI suggestion will be checked by a person before it appears on the site.')
+    ];
+    return [
+      p('AI helps in two limited ways, and a person always makes the final decision.'),
+      el('ul', { class: 'about-list' }, [
+        el('li', {}, [el('b', { text: 'A tone check when you submit. ' }), document.createTextNode('If something reads as insulting, threatening or personal, AI points it out and suggests kinder wording. It never blocks you and never judges which side you are on. You can always post as written for a reviewer to decide.')]),
+        el('li', {}, [el('b', { text: 'Drafts for reviewers. ' }), document.createTextNode('AI can draft the “Where the discussion stands” summary and suggest notes on arguments. Reviewers edit or discard these drafts; nothing AI writes is published without a person approving it.')])
+      ]),
+      p('AI can make mistakes. If you think a note or summary is unfair, use “Challenge this rating” or contact us.')
+    ];
+  }
+
   function renderAbout() {
+    if (state.aiEnabled === undefined) {
+      fetch('/api/check').then(function (r) { return r.ok ? r.json() : { enabled: false }; }).catch(function () { return { enabled: false }; })
+        .then(function (out) {
+          state.aiEnabled = !!(out && out.enabled);
+          var box = document.getElementById('ai-text');
+          if (box) { box.innerHTML = ''; aiParagraphs(state.aiEnabled).forEach(function (n) { box.appendChild(n); }); }
+        });
+    }
     function section(id, title, kids) {
       return el('section', { class: 'about-section', 'aria-labelledby': id }, [el('h2', { id: id, text: title })].concat(kids));
     }
@@ -331,10 +355,7 @@
         para('Summaries describe the discussion. They never declare a winner, and they cover approved arguments only, not public opinion.')
       ]),
 
-      section('ai', 'What AI does', [
-        para('At the moment, Both Sides does not use AI to publish or judge anything. Reviews, notes and summaries are written by people.'),
-        para('In future we plan to use AI to help: flagging possible abuse as people type, and drafting summaries for reviewers. Any AI suggestion will be checked by a person before it appears on the site, and we will update this page when that changes.')
-      ]),
+      section('ai', 'What AI does', [el('div', { id: 'ai-text' }, aiParagraphs(state.aiEnabled))]),
 
       el('div', { class: 'about-cta' }, [
         el('a', { class: 'btn btn-dark as-link', href: '#home', text: 'Browse the debates' })
@@ -585,8 +606,9 @@
         form.appendChild(el('p', { class: 'form-msg ok', text: 'Thanks! It has been sent for review and will appear once approved.' }));
         form.appendChild(el('button', { type: 'button', class: 'btn btn-plain', text: 'Close', onclick: function () { form.remove(); if (onDone) onDone(); } }));
       }).catch(function (err) {
-        console.error(err);
         btn.disabled = false;
+        if (err && err.silent) { msg.className = 'form-msg'; msg.textContent = ''; return; }
+        console.error(err);
         msg.className = 'form-msg err';
         msg.textContent = (err && err.friendly) || friendlyDbError(err) || defaultError || 'Something went wrong. Please try again.';
       });
@@ -636,6 +658,51 @@
     return form;
   }
 
+  // ---------- AI tone check (only warns; a human reviewer always decides) ----------
+  function aiCheck(fields) {
+    return fetch('/api/check', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ fields: fields }) })
+      .then(function (r) { return r.ok ? r.json() : { flags: {} }; })
+      .catch(function () { return { flags: {} }; })   // if the check can't run, posting still works
+      .then(function (out) { return (out && out.flags) || {}; });
+  }
+
+  var FIELD_LABELS = { statement: 'Statement', favor: 'Argument in favor', against: 'Argument against', text: 'Your argument', topic: 'Topic', context: 'Context' };
+
+  // Runs the check once per form. Shows a friendly warning with suggested rewrites if anything is flagged.
+  function checkBeforeSending(form, fieldMap) {
+    if (form.dataset.aiChecked === '1') return Promise.resolve();
+    var fields = {};
+    Object.keys(fieldMap).forEach(function (k) { var f = form.querySelector(fieldMap[k]); if (f && f.value.trim()) fields[k] = f.value.trim(); });
+    return aiCheck(fields).then(function (flags) {
+      form.dataset.aiChecked = '1';
+      var keys = Object.keys(flags);
+      var old = form.querySelector('.ai-warn'); if (old) old.remove();
+      if (!keys.length) return;
+      var box = el('div', { class: 'ai-warn', role: 'status' }, [
+        el('div', { class: 'ai-warn-title', text: 'Before you post: this may not meet our community guidelines' })
+      ]);
+      keys.forEach(function (k) {
+        var f = flags[k];
+        var row = el('div', { class: 'ai-warn-row' }, [
+          el('div', {}, [el('b', { text: (FIELD_LABELS[k] || k) + ': ' }), document.createTextNode(f.explanation || 'This may come across as disrespectful.')])
+        ]);
+        if (f.suggestion) {
+          row.appendChild(el('div', { class: 'ai-suggest' }, [el('span', { class: 'muted small', text: 'Suggested wording: ' }), el('span', { text: f.suggestion })]));
+          row.appendChild(el('button', { type: 'button', class: 'btn-small btn-plain', text: 'Use this wording', onclick: function () {
+            var input = form.querySelector(fieldMap[k]); if (input) input.value = f.suggestion;
+            row.remove();
+            if (!box.querySelector('.ai-warn-row')) box.remove();
+          } }));
+        }
+        box.appendChild(row);
+      });
+      box.appendChild(el('p', { class: 'muted small', text: 'You can still post as written. A person reviews everything before it appears. This check was done by AI and may be wrong.' }));
+      form.querySelector('.form-actions').before(box);
+      form.querySelector('button[type="submit"]').textContent = 'Post anyway for review';
+      throw { silent: true };
+    });
+  }
+
   // One form for a whole debate: topic (existing or new), the statement, and a first argument on each side.
   function debateForm(opts) {
     var form = document.getElementById('tpl-add-debate').content.firstElementChild.cloneNode(true);
@@ -672,6 +739,14 @@
 
     wireForm(form, opts.onCancel, function (fd) {
       var topicId = opts.topic ? opts.topic.id : (fd.get('topic_id') === 'new' ? null : Number(fd.get('topic_id')));
+      return checkBeforeSending(form, { topic: 'input[name="new_topic"]', statement: 'textarea[name="statement"]', context: 'input[name="context"]', favor: 'textarea[name="favor"]', against: 'textarea[name="against"]' })
+        .then(function () { return sendDebate(fd, topicId); });
+    }, 'Something went wrong. Please check each box and try again.', function () {
+      render();
+      flash('Thanks! Your debate has been sent for review. You can see it below, marked “Waiting for review”.');
+    });
+
+    function sendDebate(fd, topicId) {
       var payload = {
         p_country: country.code,
         p_topic_id: topicId,
@@ -692,10 +767,7 @@
         }
         return res;
       });
-    }, 'Something went wrong. Please check each box and try again.', function () {
-      render();
-      flash('Thanks! Your debate has been sent for review. You can see it below, marked “Waiting for review”.');
-    });
+    }
     setTimeout(function () { var f = form.querySelector(opts.topic || !topics.length ? 'textarea, input[name="new_topic"]' : 'select'); if (f && !opts.open) f.focus(); }, 0);
     return form;
   }
@@ -708,13 +780,13 @@
       var src = (fd.get('source_url') || '').trim();
       var author = (fd.get('author') || '').trim();
       text = (fd.get('text') || '').trim();
-      return db.from('reasons').insert({
+      return checkBeforeSending(form, { text: 'textarea[name="text"]' }).then(function () { return db.from('reasons').insert({
         statement_id: s.id,
         side: side,
         text: text,
         author: author || 'Anonymous',
         source_url: src ? safeUrl(src) : null
-      });
+      }); });
     }, 'Something went wrong. Arguments need at least 10 characters. Please try again.', function () {
       addPending({ type: 'argument', statementId: s.id, side: side, text: text });
       render();

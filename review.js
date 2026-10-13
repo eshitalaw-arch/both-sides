@@ -6,7 +6,7 @@
 
   var $ = function (id) { return document.getElementById(id); };
   var view = $('view');
-  var state = { view: 'queue', queue: null, live: null, liveCountry: null, signup: false };
+  var state = { view: 'queue', queue: null, live: null, liveCountry: null, signup: false, notes: {} };
 
   // ---------- helpers ----------
   function el(tag, attrs, children) {
@@ -45,6 +45,31 @@
         notice('That did not work: ' + ((e && e.message) || 'unknown error') + '. Please try again.');
       }).then(function () { all.forEach(function (b) { b.disabled = false; }); });
     };
+  }
+
+  // ---------- AI drafting help (reviewer only; nothing is saved until you press Save/Apply) ----------
+  function assist(task, statementId) {
+    return db.auth.getSession().then(function (r) {
+      var token = r.data && r.data.session && r.data.session.access_token;
+      return fetch('/api/assist', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ task: task, statementId: statementId })
+      });
+    }).then(function (res) {
+      return res.json().catch(function () { return {}; }).then(function (out) {
+        if (!res.ok) throw new Error(out.error || 'The AI could not help just now.');
+        return out;
+      });
+    });
+  }
+
+  var NOTE_NAMES = { fallacy: 'Possible fallacy', overclaims: 'Overclaims', evidence: 'Needs evidence', value: 'Value difference', strong: 'Strong', none: 'No note' };
+
+  function setNote(id, n) {
+    return db.rpc('admin_set_tag', { p_id: id, p_tag: n.tag, p_detail: n.detail || null, p_why: n.why || null, p_fix: n.fix || null }).then(function (res) {
+      if (res.error) throw res.error;
+    });
   }
 
   // ---------- sign in ----------
@@ -119,7 +144,7 @@
       db.from('countries').select('code,name,sort').order('sort'),
       db.from('topics').select('id,country,title').order('sort').order('created_at'),
       db.from('statements').select('*').order('created_at'),
-      db.from('reasons').select('id,statement_id,side,text,author').order('created_at')
+      db.from('reasons').select('*').order('created_at')
     ]).then(function (r) {
       var err = r[0].error || r[1].error || r[2].error || r[3].error || r[4].error;
       if (err) throw err;
@@ -316,10 +341,49 @@
             var list = args.filter(function (r) { return r.side === side; });
             return el('div', { class: side }, [el('div', { class: 'side-name', text: side === 'favor' ? 'In favor' : 'Against' })].concat(
               list.length ? list.map(function (r) {
-                return argBlock(r, [el('button', { type: 'button', class: 'btn-small btn-delete', text: 'Delete',
+                var block = argBlock(r, [el('button', { type: 'button', class: 'btn-small btn-delete', text: 'Delete',
                   onclick: busy(null, function () { return remove('reason', r.id, r.text); }) })]);
+                if (r.tag) {
+                  block.appendChild(el('div', { class: 'note-current' }, [
+                    el('span', { text: 'Note: ' + (NOTE_NAMES[r.tag] || r.tag) + (r.tag_detail ? ' (' + r.tag_detail + ')' : '') }),
+                    el('button', { type: 'button', class: 'btn-small btn-reject', text: 'Remove note',
+                      onclick: busy(null, function () { return setNote(r.id, { tag: 'none' }).then(function () { flash('Note removed.'); return refresh(); }); }) })
+                  ]));
+                }
+                var sug = (state.notes[s.id] || []).filter(function (n) { return n.id === r.id; })[0];
+                if (sug) {
+                  block.appendChild(el('div', { class: 'note-suggest' }, [
+                    el('div', {}, [el('b', { text: 'AI suggests: ' + NOTE_NAMES[sug.tag] + (sug.detail ? ' (' + sug.detail + ')' : '') })]),
+                    sug.why ? el('div', { text: 'Why: ' + sug.why }) : null,
+                    sug.fix ? el('div', { text: 'To improve: ' + sug.fix }) : null,
+                    el('div', { class: 'actions' }, [
+                      sug.tag !== 'none' || r.tag ? el('button', { type: 'button', class: 'btn-small btn-approve', text: sug.tag === 'none' ? 'Apply (remove note)' : 'Apply this note',
+                        onclick: busy(null, function () {
+                          return setNote(r.id, sug).then(function () {
+                            state.notes[s.id] = state.notes[s.id].filter(function (n) { return n.id !== r.id; });
+                            flash('Note saved and live.'); return refresh();
+                          });
+                        }) }) : null,
+                      el('button', { type: 'button', class: 'btn-small btn-reject', text: 'Ignore', onclick: function () {
+                        state.notes[s.id] = state.notes[s.id].filter(function (n) { return n.id !== r.id; }); render();
+                      } })
+                    ])
+                  ]));
+                }
+                return block;
               }) : [el('span', { class: 'muted small', text: 'No arguments.' })]));
           })),
+          args.length ? el('div', { class: 'actions' }, [
+            el('button', { type: 'button', class: 'btn-small btn-reject', text: 'Suggest notes with AI',
+              onclick: busy(null, function () {
+                return assist('notes', s.id).then(function (out) {
+                  state.notes[s.id] = out.notes || [];
+                  var real = state.notes[s.id].filter(function (n) { return n.tag !== 'none'; }).length;
+                  flash(real ? 'AI suggested ' + real + (real === 1 ? ' note' : ' notes') + '. Review each one below.' : 'AI suggests no notes for this debate.');
+                  render();
+                });
+              }) })
+          ]) : null,
           summaryBlock(s)
         ]));
       });
@@ -363,7 +427,17 @@
         field('What would help resolve it', 'resolve', s.stands_resolve, '(evidence or steps that would settle it)'),
         el('label', {}, [document.createTextNode('Status label '), el('span', { class: 'muted', text: '(optional, e.g. “No new arguments since 8 Oct”)' }),
           el('input', { name: 'status', maxlength: '80' })]),
+        el('p', { class: 'ai-draft-note muted small', hidden: true, text: 'AI draft. Read it carefully and edit before saving.' }),
         el('div', { class: 'form-actions' }, [
+          el('button', { type: 'button', class: 'btn btn-reject ai-draft-btn', text: 'Draft with AI', onclick: function () {
+            var b = form.querySelector('.ai-draft-btn'); b.disabled = true; b.textContent = 'Drafting…';
+            assist('summary', s.id).then(function (out) {
+              form.querySelector('[name=supported]').value = out.supported || '';
+              form.querySelector('[name=disputed]').value = out.disputed || '';
+              form.querySelector('[name=resolve]').value = out.resolve || '';
+              form.querySelector('.ai-draft-note').hidden = false;
+            }).catch(function (e) { notice(e.message); }).then(function () { b.disabled = false; b.textContent = 'Draft with AI'; });
+          } }),
           el('button', { type: 'submit', class: 'btn btn-approve', text: 'Save summary' }),
           el('button', { type: 'button', class: 'btn btn-reject', text: 'Cancel', onclick: function () { form.remove(); editBtn.hidden = false; } })
         ]),
@@ -397,7 +471,7 @@
     var rows = state.queue.recent || [];
     if (!rows.length) { view.appendChild(el('p', { class: 'done', text: 'No decisions yet.' })); return; }
     var kinds = { country: 'Country', topic: 'Topic', statement: 'Debate', reason: 'Argument' };
-    var labels = { approved: 'Approved', rejected: 'Rejected', deleted: 'Deleted', summary: 'Summary updated' };
+    var labels = { approved: 'Approved', rejected: 'Rejected', deleted: 'Deleted', summary: 'Summary updated', note: 'Note updated' };
     var tbody = el('tbody', {}, rows.map(function (r) {
       return el('tr', {}, [
         el('td', { text: when(r.at) }),
