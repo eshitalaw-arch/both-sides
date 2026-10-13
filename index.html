@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Both Sides</title>
+  <meta name="description" content="One table. Reasons for, reasons against.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="wrap header-row">
+      <div class="brand">
+        <a href="/" class="brand-name">Both Sides</a>
+        <span class="brand-tag">One table. Reasons for, reasons against.</span>
+      </div>
+      <nav class="tabs" aria-label="Country">
+        <button type="button" class="tab" data-country="india" aria-pressed="true">India</button>
+        <button type="button" class="tab" data-country="us" aria-pressed="false">United States</button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap main">
+    <div id="notice" class="notice" hidden></div>
+    <div id="content" aria-live="polite">
+      <p class="muted">Loading…</p>
+    </div>
+  </main>
+
+  <footer class="wrap footer">
+    <span>Post anonymously or under your name</span>
+    <span>Every statement and reason is reviewed before it goes live</span>
+  </footer>
+
+  <template id="tpl-add-statement">
+    <form class="form add-statement">
+      <h3>Propose a statement</h3>
+      <p class="muted small">Write a clear claim people can agree or disagree with, for example “The appointment process should include a judicial member.” It will appear once it has been reviewed.</p>
+      <label>Statement
+        <textarea name="text" rows="2" maxlength="300" required minlength="10"></textarea>
+      </label>
+      <label>One line of context <span class="muted">(optional)</span>
+        <input name="context" maxlength="300" placeholder="What this is about, and what it is not about">
+      </label>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-dark">Submit for review</button>
+        <button type="button" class="btn btn-plain" data-cancel>Cancel</button>
+      </div>
+      <p class="form-msg" role="status"></p>
+    </form>
+  </template>
+
+  <template id="tpl-add-reason">
+    <form class="form add-reason">
+      <label>Your reason <span class="muted">(one or two sentences)</span>
+        <textarea name="text" rows="3" maxlength="280" required minlength="10"></textarea>
+      </label>
+      <label>Source link <span class="muted">(optional, for factual claims)</span>
+        <input name="source_url" type="url" placeholder="https://">
+      </label>
+      <label>Name to show <span class="muted">(leave blank to post anonymously)</span>
+        <input name="author" maxlength="60" placeholder="Anonymous">
+      </label>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-dark">Submit for review</button>
+        <button type="button" class="btn btn-plain" data-cancel>Cancel</button>
+      </div>
+      <p class="form-msg" role="status"></p>
+    </form>
+  </template>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
