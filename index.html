@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Both Sides</title>
-  <meta name="description" content="One table. Reasons for, reasons against.">
+  <meta name="description" content="One table. Arguments for, arguments against.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
@@ -15,7 +15,7 @@
     <div class="wrap header-row">
       <div class="brand">
         <a href="/" class="brand-name">Both Sides</a>
-        <span class="brand-tag">One table. Reasons for, reasons against.</span>
+        <span class="brand-tag">One table. Arguments for, arguments against.</span>
       </div>
       <div class="header-right">
         <nav class="tabs" id="tabs" aria-label="Country" hidden></nav>
@@ -26,6 +26,8 @@
 
   <main class="wrap main">
     <div id="notice" class="notice" hidden></div>
+    <div id="flash" class="flash" role="status" hidden></div>
+    <div id="country-notes"></div>
     <div id="country-form-slot"></div>
     <div id="content" aria-live="polite">
       <p class="muted">Loading…</p>
@@ -34,26 +36,9 @@
 
   <footer class="wrap footer">
     <span>Post anonymously or under your name</span>
-    <span>Every statement and reason is reviewed before it goes live</span>
+    <span>Every debate and argument is reviewed before it goes live</span>
+    <a href="/review.html">Reviewer sign-in</a>
   </footer>
-
-  <template id="tpl-add-statement">
-    <form class="form add-statement">
-      <h3>Propose a statement</h3>
-      <p class="muted small">Write a clear claim people can agree or disagree with, for example “The appointment process should include a judicial member.” It will appear once it has been reviewed.</p>
-      <label>Statement
-        <textarea name="text" rows="2" maxlength="300" required minlength="10"></textarea>
-      </label>
-      <label>One line of context <span class="muted">(optional)</span>
-        <input name="context" maxlength="300" placeholder="What this is about, and what it is not about">
-      </label>
-      <div class="form-actions">
-        <button type="submit" class="btn btn-dark">Submit for review</button>
-        <button type="button" class="btn btn-plain" data-cancel>Cancel</button>
-      </div>
-      <p class="form-msg" role="status"></p>
-    </form>
-  </template>
 
   <template id="tpl-add-country">
     <form class="form add-country">
@@ -73,12 +58,34 @@
     </form>
   </template>
 
-  <template id="tpl-add-topic">
-    <form class="form add-topic">
-      <h3>Propose a topic</h3>
-      <p class="muted small">A topic is the broad debate, for example “Election Commission protests” or “Online safety law”. Once it is approved, people can add statements to it.</p>
-      <label>Topic
-        <input name="title" maxlength="100" required minlength="3" placeholder="e.g. Online safety law">
+  <template id="tpl-add-debate">
+    <form class="form add-debate">
+      <h3>Start a new debate</h3>
+      <p class="muted small">A debate is one clear statement people can agree or disagree with, plus the strongest argument on each side. It appears once a reviewer approves it.</p>
+      <div class="topic-choice">
+        <label class="topic-select">Topic
+          <select name="topic_id"></select>
+        </label>
+        <label class="new-topic">New topic <span class="muted">(the broad issue)</span>
+          <input name="new_topic" maxlength="100" minlength="3" placeholder="e.g. Election Commission protests">
+        </label>
+      </div>
+      <label>Statement to debate
+        <textarea name="statement" rows="2" maxlength="300" required minlength="10" placeholder="e.g. The demand that the Chief Election Commissioner resign is fair."></textarea>
+      </label>
+      <label>One line of context <span class="muted">(optional)</span>
+        <input name="context" maxlength="300" placeholder="What this is about, and what it is not about">
+      </label>
+      <div class="two-sides">
+        <label class="favor-box">Argument in favor <span class="muted">(optional)</span>
+          <textarea name="favor" rows="3" maxlength="280" minlength="10" placeholder="Why the statement is right"></textarea>
+        </label>
+        <label class="against-box">Argument against <span class="muted">(optional)</span>
+          <textarea name="against" rows="3" maxlength="280" minlength="10" placeholder="Why the statement is wrong"></textarea>
+        </label>
+      </div>
+      <label>Name to show <span class="muted">(leave blank to post anonymously)</span>
+        <input name="author" maxlength="60" placeholder="Anonymous">
       </label>
       <div class="form-actions">
         <button type="submit" class="btn btn-dark">Submit for review</button>
@@ -90,7 +97,7 @@
 
   <template id="tpl-add-reason">
     <form class="form add-reason">
-      <label>Your reason <span class="muted">(one or two sentences)</span>
+      <label><span class="reason-label">Your argument</span> <span class="muted">(one or two sentences)</span>
         <textarea name="text" rows="3" maxlength="280" required minlength="10"></textarea>
       </label>
       <label>Source link <span class="muted">(optional, for factual claims)</span>

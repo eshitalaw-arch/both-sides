@@ -16,7 +16,7 @@
   };
 
   var tabsNav = document.getElementById('tabs');
-  var state = { country: readHash(), countries: [], data: null, expanded: {} };
+  var state = { country: readHash(), countries: [], data: null, expanded: {}, open: {} };
   var db = null;
 
   // ---------- helpers ----------
@@ -87,6 +87,7 @@
         });
       }
       pickCountry();
+      prunePending();
       showNotice('');
       render();
     }).catch(function (e) {
@@ -96,28 +97,112 @@
     });
   }
 
+  // ---------- things this visitor submitted (shown only to them until approved) ----------
+  var PENDING_KEY = 'bothSides.pending.v1';
+  var PENDING_DAYS = 30;
+
+  function readPending() {
+    try {
+      var list = JSON.parse(localStorage.getItem(PENDING_KEY) || '[]');
+      var cutoff = Date.now() - PENDING_DAYS * 864e5;
+      return Array.isArray(list) ? list.filter(function (p) { return p && p.at > cutoff; }) : [];
+    } catch (e) { return []; }
+  }
+  function writePending(list) {
+    try { localStorage.setItem(PENDING_KEY, JSON.stringify(list)); } catch (e) { /* storage blocked: nothing to remember */ }
+  }
+  function addPending(item) {
+    item.at = Date.now();
+    var list = readPending(); list.push(item); writePending(list);
+  }
+  // Once an item is live (or the reviewer turned it down long ago), stop showing the local copy.
+  function prunePending() {
+    if (!state.data) return;
+    var live = {};
+    state.data.statements.forEach(function (s) { live['s:' + s.text] = true; });
+    state.data.reasons.forEach(function (r) { live['r:' + r.statement_id + ':' + r.text] = true; });
+    state.countries.forEach(function (c) { live['c:' + c.name.toLowerCase()] = true; });
+    writePending(readPending().filter(function (p) {
+      if (p.type === 'debate') return !live['s:' + p.statement];
+      if (p.type === 'argument') return !live['r:' + p.statementId + ':' + p.text];
+      if (p.type === 'country') return !live['c:' + p.name.toLowerCase()];
+      return false;
+    }));
+  }
+
+  function waitingBadge() {
+    return el('span', { class: 'waiting', text: 'Waiting for review · only you can see this' });
+  }
+
   // ---------- rendering ----------
   function render() {
     renderTabs();
+    renderCountryNotes();
     content.innerHTML = '';
     if (!state.data) return;
 
+    var country = currentCountry();
     var topics = state.data.topics.filter(function (t) { return t.country === state.country; });
-    if (!topics.length) {
-      content.appendChild(el('p', { class: 'empty', text: 'No topics yet for this country. Propose the first one.' }));
+    var pending = readPending().filter(function (p) { return p.type === 'debate' && p.country === state.country; });
+    var newTopicPending = pending.filter(function (p) { return !p.topicId; });
+
+    if (!topics.length && !newTopicPending.length && country) {
+      // An empty country: invite the first debate straight away, with the form already open.
+      var intro = el('section', { class: 'topic' }, [
+        el('div', { class: 'topic-head' }, [el('h1', { text: country.name })]),
+        el('p', { class: 'muted', text: 'No debates here yet. Start the first one: write a statement people can agree or disagree with, and the strongest argument on each side.' })
+      ]);
+      intro.appendChild(debateForm({ country: country, open: true }));
+      content.appendChild(intro);
+      return;
     }
-    topics.forEach(function (topic) { content.appendChild(renderTopic(topic)); });
-    if (state.country) content.appendChild(renderProposeTopic(state.country));
+
+    var list = el('div', { class: 'topic-list' });
+    var onlyOne = topics.length + Object.keys(newTopicPending).length === 1;
+    topics.forEach(function (topic) {
+      list.appendChild(renderTopic(topic, pending.filter(function (p) { return String(p.topicId) === String(topic.id); }), onlyOne));
+    });
+
+    // New topics this visitor proposed (not live yet)
+    var byTitle = {};
+    newTopicPending.forEach(function (p) { (byTitle[p.newTopic] = byTitle[p.newTopic] || []).push(p); });
+    Object.keys(byTitle).forEach(function (title) {
+      var shell = topicShell('new:' + title, title, null, waitingBadge(), true);
+      byTitle[title].forEach(function (p) { shell.body.appendChild(renderPendingDebate(p)); });
+      list.appendChild(shell.details);
+    });
+    if (list.children.length) {
+      var head = el('div', { class: 'country-head' }, [
+        el('h1', { text: country ? country.name : '' }),
+        el('span', { class: 'muted small', text: topics.length + (topics.length === 1 ? ' topic' : ' topics') + ' · click a topic to open it' })
+      ]);
+      content.appendChild(head);
+      content.appendChild(list);
+    }
+
+    if (country) content.appendChild(renderStartDebate(country));
   }
 
-  function renderProposeTopic(countryCode) {
-    var country = state.countries.filter(function (c) { return c.code === countryCode; })[0];
-    var box = el('section', { class: 'propose-topic', 'aria-label': 'Propose a topic' });
+  function currentCountry() {
+    return state.countries.filter(function (c) { return c.code === state.country; })[0] || null;
+  }
+
+  function renderCountryNotes() {
+    var slot = document.getElementById('country-notes');
+    if (!slot) return;
+    slot.innerHTML = '';
+    readPending().filter(function (p) { return p.type === 'country'; }).forEach(function (p) {
+      slot.appendChild(el('p', { class: 'pending-note', text: 'Your country suggestion "' + p.name + '" is waiting for review. Its tab will appear once it is approved.' }));
+    });
+  }
+
+  function renderStartDebate(country) {
+    var box = el('section', { class: 'start-debate', 'aria-label': 'Start a new debate' });
     var slot = el('div');
-    var btn = el('button', { type: 'button', class: 'btn btn-plain', text: '+ Propose a new topic' + (country ? ' for ' + country.name : '') });
+    var btn = el('button', { type: 'button', class: 'btn btn-dark', text: '+ Start a new debate in ' + country.name });
     btn.addEventListener('click', function () {
       btn.hidden = true;
-      slot.appendChild(topicForm(countryCode, country ? country.name : '', function () { btn.hidden = false; btn.focus(); }));
+      slot.appendChild(debateForm({ country: country, onCancel: function () { btn.hidden = false; btn.focus(); } }));
     });
     box.appendChild(btn);
     box.appendChild(slot);
@@ -140,78 +225,115 @@
     });
   }
 
-  function renderTopic(topic) {
+  function topicShell(key, title, countText, extra, openByDefault) {
+    var isOpen = state.open[key] !== undefined ? state.open[key] : openByDefault;
+    var details = el('details', { class: 'topic' });
+    details.open = !!isOpen;
+    details.addEventListener('toggle', function () { state.open[key] = details.open; });
+    var summary = el('summary', { class: 'topic-summary' }, [
+      el('span', { class: 'chev', 'aria-hidden': 'true' }),
+      el('h2', { class: 'topic-title', text: title }),
+      countText ? el('span', { class: 'topic-count', text: countText }) : null,
+      extra || null
+    ]);
+    details.appendChild(summary);
+    var body = el('div', { class: 'topic-body' });
+    details.appendChild(body);
+    return { details: details, body: body };
+  }
+
+  function renderTopic(topic, pending, onlyOne) {
     var stmts = state.data.statements.filter(function (s) { return s.topic_id === topic.id; });
-    var section = el('section', { class: 'topic', 'aria-label': topic.title });
+    var shell = topicShell('t' + topic.id, topic.title,
+      stmts.length + (stmts.length === 1 ? ' debate' : ' debates'), null, onlyOne || pending.length > 0);
+    var section = shell.body;
 
-    section.appendChild(el('div', { class: 'topic-head' }, [
-      el('h1', { text: topic.title }),
-      el('span', { class: 'muted small', text: stmts.length + (stmts.length === 1 ? ' statement' : ' statements') })
-    ]));
-
-    if (!stmts.length) {
-      section.appendChild(el('p', { class: 'empty', text: 'No statements yet. Propose the first one.' }));
+    if (!stmts.length && !pending.length) {
+      section.appendChild(el('p', { class: 'empty', text: 'No debates in this topic yet. Add the first one.' }));
     }
     stmts.forEach(function (s) { section.appendChild(renderStatement(s)); });
+    pending.forEach(function (p) { section.appendChild(renderPendingDebate(p)); });
 
     var slot = el('div');
-    var proposeBtn = el('button', { type: 'button', class: 'btn btn-dark btn-propose', text: '+ Propose a statement' });
-    proposeBtn.addEventListener('click', function () {
-      proposeBtn.hidden = true;
-      slot.appendChild(statementForm(topic, function () { proposeBtn.hidden = false; }));
+    var addBtn = el('button', { type: 'button', class: 'btn btn-plain btn-propose', text: '+ Add a debate to this topic' });
+    addBtn.addEventListener('click', function () {
+      addBtn.hidden = true;
+      slot.appendChild(debateForm({ country: currentCountry(), topic: topic, onCancel: function () { addBtn.hidden = false; addBtn.focus(); } }));
     });
-    section.appendChild(proposeBtn);
+    section.appendChild(addBtn);
     section.appendChild(slot);
-    return section;
+    return shell.details;
+  }
+
+  function statementCell(text, context) {
+    return el('div', { class: 'cell cell-statement' }, [
+      el('div', { class: 'eyebrow', text: 'Debate' }),
+      el('h2', { class: 'statement-text', text: text }),
+      context ? el('p', { class: 'statement-context', text: context }) : null
+    ]);
   }
 
   function renderStatement(s) {
     var card = el('article', { class: 'card' });
     var row = el('div', { class: 'card-row' });
-
-    row.appendChild(el('div', { class: 'cell cell-statement' }, [
-      el('div', { class: 'eyebrow', text: 'Statement' }),
-      el('h2', { class: 'statement-text', text: s.text }),
-      s.context ? el('p', { class: 'statement-context', text: s.context }) : null
-    ]));
+    row.appendChild(statementCell(s.text, s.context));
     row.appendChild(renderSide(s, 'favor', 'In favor'));
     row.appendChild(renderSide(s, 'against', 'Against'));
     card.appendChild(row);
+    if (s.stands_supported || s.stands_disputed || s.stands_depends) card.appendChild(renderStands(s));
+    return card;
+  }
 
-    if (s.stands_supported || s.stands_disputed || s.stands_depends) {
-      card.appendChild(renderStands(s));
-    }
+  function renderPendingDebate(p) {
+    var card = el('article', { class: 'card pending' });
+    var row = el('div', { class: 'card-row' });
+    var stmt = statementCell(p.statement, p.context);
+    stmt.appendChild(waitingBadge());
+    row.appendChild(stmt);
+    [['favor', 'In favor', p.favor], ['against', 'Against', p.against]].forEach(function (x) {
+      var cell = el('div', { class: 'cell cell-side side-' + x[0] }, [el('div', { class: 'side-label', text: x[1] })]);
+      cell.appendChild(x[2]
+        ? el('ol', { class: 'reasons' }, [el('li', { class: 'reason' }, [el('span', { text: x[2] }),
+            el('div', { class: 'reason-meta' }, [el('span', { text: p.author || 'Anonymous' })])])])
+        : el('p', { class: 'no-reasons', text: 'No argument yet.' }));
+      row.appendChild(cell);
+    });
+    card.appendChild(row);
     return card;
   }
 
   function renderSide(s, side, label) {
     var all = state.data.reasons.filter(function (r) { return r.statement_id === s.id && r.side === side; });
+    var mine = readPending().filter(function (p) { return p.type === 'argument' && p.statementId === s.id && p.side === side; });
     var key = s.id + side;
     var showAll = !!state.expanded[key];
     var shown = showAll ? all : all.slice(0, 2);
+    var word = side === 'favor' ? 'in favor' : 'against';
 
-    var cell = el('div', { class: 'cell cell-side side-' + side }, [
-      el('div', { class: 'side-label', text: label })
-    ]);
+    var cell = el('div', { class: 'cell cell-side side-' + side }, [el('div', { class: 'side-label', text: label })]);
 
-    if (!all.length) {
-      cell.appendChild(el('p', { class: 'no-reasons', text: 'No reasons yet.' }));
+    if (!all.length && !mine.length) {
+      cell.appendChild(el('p', { class: 'no-reasons', text: 'No arguments yet.' }));
     } else {
       var list = el('ol', { class: 'reasons' });
       shown.forEach(function (r) { list.appendChild(renderReason(r)); });
+      mine.forEach(function (p) {
+        list.appendChild(el('li', { class: 'reason pending' }, [el('span', { text: p.text }),
+          el('div', { class: 'reason-meta' }, [waitingBadge()])]));
+      });
       cell.appendChild(list);
     }
 
     if (all.length > 2) {
       cell.appendChild(el('button', {
         type: 'button', class: 'link-btn',
-        text: showAll ? 'Show fewer' : 'View all ' + all.length + ' reasons ' + (side === 'favor' ? 'in favor' : 'against'),
+        text: showAll ? 'Show fewer' : 'View all ' + all.length + ' arguments ' + word,
         onclick: function () { state.expanded[key] = !showAll; render(); }
       }));
     }
 
     var slot = el('div');
-    var addBtn = el('button', { type: 'button', class: 'btn-add', text: '+ Add a reason ' + (side === 'favor' ? 'in favor' : 'against') });
+    var addBtn = el('button', { type: 'button', class: 'btn-add', text: '+ Add an argument ' + word });
     addBtn.addEventListener('click', function () {
       addBtn.hidden = true;
       slot.appendChild(reasonForm(s, side, function () { addBtn.hidden = false; }));
@@ -268,47 +390,64 @@
         item('Still disputed', s.stands_disputed),
         item('The answer depends on', s.stands_depends)
       ]),
-      el('div', { class: 'stands-basis', text: (s.stands_basis ? s.stands_basis + ' ' : '') + 'Covers approved reasons only, not public opinion.' })
+      el('div', { class: 'stands-basis', text: (s.stands_basis ? s.stands_basis + ' ' : '') + 'Covers approved arguments only, not public opinion.' })
     ]);
   }
 
   // ---------- forms ----------
-  function wireForm(form, onDone, submit, defaultError) {
+  // opts.inPlace: keep the form and show a thank-you inside it (used where the page isn't redrawn).
+  function wireForm(form, onDone, submit, defaultError, onSuccess) {
     var msg = form.querySelector('.form-msg');
     var btn = form.querySelector('button[type="submit"]');
-    form.querySelector('[data-cancel]').addEventListener('click', function () { form.remove(); onDone(); });
+    var cancel = form.querySelector('[data-cancel]');
+    if (cancel) cancel.addEventListener('click', function () { form.remove(); if (onDone) onDone(); });
     form.addEventListener('submit', function (e) {
       e.preventDefault();
       btn.disabled = true;
       msg.className = 'form-msg';
       msg.textContent = 'Sending…';
-      submit(new FormData(form)).then(function (res) {
-        if (res.error) throw res.error;
+      var fd = new FormData(form);
+      Promise.resolve().then(function () { return submit(fd); }).then(function (res) {
+        if (res && res.error) throw res.error;
+        if (onSuccess) { onSuccess(fd); return; }
         form.innerHTML = '';
         form.appendChild(el('p', { class: 'form-msg ok', text: 'Thanks! It has been sent for review and will appear once approved.' }));
-        form.appendChild(el('button', { type: 'button', class: 'btn btn-plain', text: 'Close', onclick: function () { form.remove(); onDone(); } }));
+        form.appendChild(el('button', { type: 'button', class: 'btn btn-plain', text: 'Close', onclick: function () { form.remove(); if (onDone) onDone(); } }));
       }).catch(function (err) {
         console.error(err);
         btn.disabled = false;
         msg.className = 'form-msg err';
-        msg.textContent = (err && err.friendly) || defaultError || 'Something went wrong. Check the length (at least 10 characters) and try again.';
+        msg.textContent = (err && err.friendly) || friendlyDbError(err) || defaultError || 'Something went wrong. Please try again.';
       });
     });
   }
 
-  function focusFirst(form) {
-    setTimeout(function () { var t = form.querySelector('textarea'); if (t) t.focus(); }, 0);
+  // Turn the database's validation messages into plain English.
+  function friendlyDbError(err) {
+    var m = (err && err.message) || '';
+    if (/must be|too long|Unknown topic|Unknown country/.test(m)) return m.replace(/^.*?:\s*/, '') + '.';
+    return '';
+  }
+
+  function flash(text) {
+    var f = document.getElementById('flash');
+    if (!f) return;
+    f.textContent = text;
+    f.hidden = false;
+    clearTimeout(flash.t);
+    flash.t = setTimeout(function () { f.hidden = true; }, 8000);
   }
 
   function slugify(name) {
-    return name.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+    return name.toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '')
       .replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
   }
 
   function countryForm(onDone) {
     var form = document.getElementById('tpl-add-country').content.firstElementChild.cloneNode(true);
+    var name;
     wireForm(form, onDone, function (fd) {
-      var name = (fd.get('name') || '').trim().replace(/\s+/g, ' ');
+      name = (fd.get('name') || '').trim().replace(/\s+/g, ' ');
       var note = (fd.get('note') || '').trim();
       var code = slugify(name);
       if (code.length < 2) {
@@ -318,6 +457,7 @@
         if (res.error && res.error.code === '23505') {
           res.error.friendly = 'That country is already on the site or waiting for review.';
         }
+        if (!res.error) { addPending({ type: 'country', name: name }); renderCountryNotes(); }
         return res;
       });
     }, 'Something went wrong sending your suggestion. Please try again in a moment.');
@@ -325,44 +465,91 @@
     return form;
   }
 
-  function topicForm(countryCode, countryName, onDone) {
-    var form = document.getElementById('tpl-add-topic').content.firstElementChild.cloneNode(true);
-    if (countryName) form.querySelector('h3').textContent = 'Propose a topic for ' + countryName;
-    wireForm(form, onDone, function (fd) {
-      return db.from('topics').insert({ country: countryCode, title: (fd.get('title') || '').trim().replace(/\s+/g, ' ') });
-    }, 'Something went wrong. Check the topic is at least 3 characters and try again.');
-    setTimeout(function () { var i = form.querySelector('input'); if (i) i.focus(); }, 0);
-    return form;
-  }
+  // One form for a whole debate: topic (existing or new), the statement, and a first argument on each side.
+  function debateForm(opts) {
+    var form = document.getElementById('tpl-add-debate').content.firstElementChild.cloneNode(true);
+    var country = opts.country;
+    var topics = state.data.topics.filter(function (t) { return t.country === country.code; });
+    var select = form.querySelector('select[name="topic_id"]');
+    var newWrap = form.querySelector('.new-topic');
+    var newInput = form.querySelector('input[name="new_topic"]');
+    var heading = form.querySelector('h3');
 
-  function statementForm(topic, onDone) {
-    var form = document.getElementById('tpl-add-statement').content.firstElementChild.cloneNode(true);
-    wireForm(form, onDone, function (fd) {
-      var context = (fd.get('context') || '').trim();
-      return db.from('statements').insert({
-        topic_id: topic.id,
-        text: (fd.get('text') || '').trim(),
-        context: context || null
+    if (opts.topic) {
+      heading.textContent = 'Add a debate to “' + opts.topic.title + '”';
+      form.querySelector('.topic-choice').remove();
+    } else {
+      heading.textContent = (opts.open ? 'Start the first debate in ' : 'Start a new debate in ') + country.name;
+      topics.forEach(function (t) { select.appendChild(el('option', { value: String(t.id), text: t.title })); });
+      select.appendChild(el('option', { value: 'new', text: '+ A new topic…' }));
+      if (!topics.length) {
+        form.querySelector('.topic-select').hidden = true;
+        select.value = 'new';
+      }
+      var sync = function () {
+        var isNew = select.value === 'new';
+        newWrap.hidden = !isNew;
+        newInput.required = isNew;
+      };
+      select.addEventListener('change', sync);
+      sync();
+    }
+    if (opts.open) {
+      var cancelBtn = form.querySelector('[data-cancel]');
+      if (cancelBtn) cancelBtn.remove();
+    }
+
+    wireForm(form, opts.onCancel, function (fd) {
+      var topicId = opts.topic ? opts.topic.id : (fd.get('topic_id') === 'new' ? null : Number(fd.get('topic_id')));
+      var payload = {
+        p_country: country.code,
+        p_topic_id: topicId,
+        p_new_topic: topicId ? null : (fd.get('new_topic') || '').trim().replace(/\s+/g, ' '),
+        p_statement: (fd.get('statement') || '').trim(),
+        p_context: (fd.get('context') || '').trim() || null,
+        p_favor: (fd.get('favor') || '').trim() || null,
+        p_against: (fd.get('against') || '').trim() || null,
+        p_author: (fd.get('author') || '').trim() || null
+      };
+      return db.rpc('submit_debate', payload).then(function (res) {
+        if (!res.error) {
+          addPending({
+            type: 'debate', country: country.code, topicId: topicId, newTopic: payload.p_new_topic,
+            statement: payload.p_statement, context: payload.p_context,
+            favor: payload.p_favor, against: payload.p_against, author: payload.p_author
+          });
+        }
+        return res;
       });
+    }, 'Something went wrong. Please check each box and try again.', function () {
+      render();
+      flash('Thanks! Your debate has been sent for review. You can see it below, marked “Waiting for review”.');
     });
-    focusFirst(form);
+    setTimeout(function () { var f = form.querySelector(opts.topic || !topics.length ? 'textarea, input[name="new_topic"]' : 'select'); if (f && !opts.open) f.focus(); }, 0);
     return form;
   }
 
   function reasonForm(s, side, onDone) {
     var form = document.getElementById('tpl-add-reason').content.firstElementChild.cloneNode(true);
+    form.querySelector('.reason-label').textContent = side === 'favor' ? 'Your argument in favor' : 'Your argument against';
+    var text;
     wireForm(form, onDone, function (fd) {
       var src = (fd.get('source_url') || '').trim();
       var author = (fd.get('author') || '').trim();
+      text = (fd.get('text') || '').trim();
       return db.from('reasons').insert({
         statement_id: s.id,
         side: side,
-        text: (fd.get('text') || '').trim(),
+        text: text,
         author: author || 'Anonymous',
         source_url: src ? safeUrl(src) : null
       });
+    }, 'Something went wrong. Arguments need at least 10 characters. Please try again.', function () {
+      addPending({ type: 'argument', statementId: s.id, side: side, text: text });
+      render();
+      flash('Thanks! Your argument has been sent for review. You can see it in the table, marked “Waiting for review”.');
     });
-    focusFirst(form);
+    setTimeout(function () { var t = form.querySelector('textarea'); if (t) t.focus(); }, 0);
     return form;
   }
 

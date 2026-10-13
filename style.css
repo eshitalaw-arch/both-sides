@@ -43,9 +43,25 @@ a:hover { color: #163F70; }
 .header-right { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 .btn-suggest { min-height: 40px; padding: 0 12px; border: 1px dashed #C9C5BA; border-radius: 8px; background: transparent; color: var(--ink-2); font: inherit; font-size: 14px; cursor: pointer; }
 .btn-suggest:hover { background: #EFEDE6; }
-.add-country, .add-topic { max-width: 560px; }
-.propose-topic { display: flex; flex-direction: column; gap: 12px; padding-top: 8px; border-top: 1px solid var(--line); }
-.propose-topic > .btn { align-self: flex-start; }
+.add-country { max-width: 560px; }
+.add-debate { max-width: 860px; }
+.topic-choice { display: flex; flex-wrap: wrap; gap: 12px; }
+.topic-choice > label { flex: 1 1 260px; }
+.topic-choice > label[hidden] { display: none; }
+.form select { min-height: 44px; padding: 0 10px; border: 1px solid #C9C5BA; border-radius: 8px; font: inherit; font-size: 15px; font-weight: 400; background: #fff; color: var(--ink); }
+.two-sides { display: flex; flex-wrap: wrap; gap: 12px; }
+.two-sides > label { flex: 1 1 260px; padding: 12px; border-radius: 8px; }
+.favor-box { background: var(--favor-bg); border: 1px dashed var(--favor-line); color: var(--favor); }
+.against-box { background: var(--against-bg); border: 1px dashed var(--against-line); color: var(--against); }
+.start-debate { display: flex; flex-direction: column; gap: 12px; padding-top: 8px; border-top: 1px solid var(--line); }
+.start-debate > .btn { align-self: flex-start; }
+.card.pending { border-style: dashed; opacity: .92; }
+.waiting { align-self: flex-start; padding: 2px 10px; border-radius: 999px; background: #FFF1CC; color: #6E4F00; font-size: 12px; font-weight: 600; }
+.reason.pending > span:first-child { color: var(--ink-2); }
+.flash { padding: 12px 16px; border-radius: 8px; background: #E3F1E7; border: 1px solid #B9DCC3; color: #1E5A32; font-size: 14px; }
+.flash[hidden] { display: none; }
+.pending-note { margin: 0; padding: 10px 14px; border-radius: 8px; background: #FFF9E8; border: 1px solid #EBD58F; color: #6E4F00; font-size: 14px; }
+
 .tab { min-height: 40px; padding: 0 16px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; }
 .tab[aria-pressed="true"] { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
 
@@ -124,3 +140,20 @@ a:hover { color: #163F70; }
 
 /* Footer */
 .footer { border-top: 1px solid var(--line); padding-top: 20px; padding-bottom: 40px; font-size: 13px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 8px 24px; }
+
+/* Topics as collapsible rows */
+.country-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: -24px; }
+.country-head h1 { margin: 0; font-family: 'Fraunces', Georgia, serif; font-size: 32px; font-weight: 600; }
+.topic-list { display: flex; flex-direction: column; gap: 12px; }
+details.topic { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+details.topic[open] { background: transparent; border-color: transparent; }
+.topic-summary { list-style: none; cursor: pointer; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 16px 18px; border-radius: 12px; min-height: 44px; }
+.topic-summary::-webkit-details-marker { display: none; }
+details.topic[open] > .topic-summary { background: var(--surface); border: 1px solid var(--line); }
+.topic-summary:hover { background: #FBFAF7; }
+.topic-summary:focus-visible { outline: 2px solid var(--favor); outline-offset: 2px; }
+.chev { width: 10px; height: 10px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(-45deg); transition: transform .15s; flex: none; }
+details.topic[open] .chev { transform: rotate(45deg); }
+.topic-title { margin: 0; font-family: 'Fraunces', Georgia, serif; font-size: 22px; font-weight: 600; flex: 1 1 auto; }
+.topic-count { font-size: 13px; color: var(--muted); }
+.topic-body { display: flex; flex-direction: column; gap: 20px; padding: 20px 0 8px; }
