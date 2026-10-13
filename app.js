@@ -232,6 +232,7 @@
       el('p', { class: 'hero-kicker', text: 'Both Sides' }),
       el('h1', { class: 'hero-title', text: 'Every big question has more than one side.' }),
       el('p', { class: 'hero-lead', text: 'Put the arguments side by side, and the bigger picture comes into view.' }),
+      el('p', { class: 'hero-topics', text: 'Debates can be about anything people disagree on: politics, technology, law, the economy, science, health, education, culture and more.' }),
       el('div', { class: 'hero-actions' }, [
         el('a', { class: 'btn btn-dark as-link', href: '#countries', text: 'Browse the debates', onclick: function (e) { e.preventDefault(); var t = document.getElementById('countries'); if (t) t.scrollIntoView({ behavior: 'smooth' }); } }),
         state.countries[0] ? el('a', { class: 'btn btn-plain as-link', href: '#' + state.countries[0].code, text: 'Start a debate' }) : null
@@ -398,12 +399,13 @@
 
       section('why', 'The idea', [
         para('On most public questions, thoughtful people disagree. The arguments for and against are usually spread across many places, and it takes effort to find them together.'),
-        para('Both Sides brings them into one table. Each debate starts with a clear statement, then lists the strongest arguments in favor and against, next to each other. The aim is not to settle the question for anyone, but to make the whole discussion easy to see in one place.')
+        para('Both Sides brings them into one table. Each debate starts with a clear statement, then lists the strongest arguments in favor and against, next to each other. The aim is not to settle the question for anyone, but to make the whole discussion easy to see in one place.'),
+        para('A debate can be about any public question people disagree on: politics and elections, technology, laws and courts, the economy, science, health, education, the environment, culture and more.')
       ]),
 
       section('how', 'How it works', [
         el('ol', { class: 'steps' }, [
-          el('li', {}, [el('span', { class: 'step-n', text: '1' }), el('h3', { text: 'Countries and topics' }), el('p', { text: 'Debates are grouped by country, then by topic: a broad issue such as housing or education.' })]),
+          el('li', {}, [el('span', { class: 'step-n', text: '1' }), el('h3', { text: 'Countries and topics' }), el('p', { text: 'Debates are grouped by country, then by topic: a broad issue in politics, technology, law, health, education or anything else.' })]),
           el('li', {}, [el('span', { class: 'step-n', text: '2' }), el('h3', { text: 'One table per debate' }), el('p', { text: 'A statement, with arguments in favor on one side and arguments against on the other.' })]),
           el('li', {}, [el('span', { class: 'step-n', text: '3' }), el('h3', { text: 'Anyone can contribute' }), el('p', { text: 'Suggest a country, start a debate or add an argument, anonymously or under your name.' })])
         ])

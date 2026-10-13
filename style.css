@@ -287,3 +287,5 @@ details.topic { display: flex; flex-direction: column; }
 .instructions { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
 .instructions summary { cursor: pointer; padding: 12px 16px; font-weight: 600; }
 .instructions pre { margin: 0; padding: 0 16px 16px; white-space: pre-wrap; font-family: inherit; font-size: 14px; line-height: 1.6; color: var(--ink-2); }
+
+.hero-topics { margin: 0; font-size: 15px; color: var(--muted); }
