@@ -81,6 +81,12 @@ create policy "Anyone can submit a reason for review"
     and exists (select 1 from statements s where s.id = statement_id and s.status = 'approved')
   );
 
+-- Let the website (the "anon" role) read and submit, nothing more.
+-- The policies above still decide WHICH rows it can see or add.
+grant usage on schema public to anon, authenticated;
+grant select on topics, statements, reasons to anon, authenticated;
+grant insert on statements, reasons to anon, authenticated;
+
 -- 3. Starting topics ---------------------------------------------------------
 
 insert into topics (country, title, sort) values
