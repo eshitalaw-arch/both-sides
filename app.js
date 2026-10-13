@@ -52,7 +52,11 @@
   function applyRoute() {
     var h = readHash();
     if (!h || h === 'home') { state.view = 'home'; state.country = ''; state.focusTopic = null; return; }
-    if (h === 'about') { state.view = 'about'; state.country = ''; state.focusTopic = null; return; }
+    if (h === 'about' || h.indexOf('about/') === 0) {
+      state.view = 'about'; state.country = ''; state.focusTopic = null;
+      state.aboutSection = h.split('/')[1] || null;
+      return;
+    }
     var parts = h.split('/');
     state.view = 'country';
     state.country = parts[0];
@@ -158,7 +162,14 @@
       if (a.dataset.nav === state.view) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
     });
     if (state.view === 'home') { renderHome(); return; }
-    if (state.view === 'about') { renderAbout(); return; }
+    if (state.view === 'about') {
+      renderAbout();
+      if (state.aboutSection) {
+        var secId = state.aboutSection;
+        setTimeout(function () { var sec = document.getElementById(secId); if (sec) sec.scrollIntoView({ block: 'start' }); }, 0);
+      }
+      return;
+    }
 
     var country = currentCountry();
     if (state.focusTopic) {
@@ -290,6 +301,28 @@
   }
 
   // ---------- About ----------
+  var FALLACIES = [
+    ['Personal attack (ad hominem)', 'Attacking the person making an argument instead of the argument itself. “You only say that because of who you are” does not show the point is wrong.'],
+    ['Straw man', 'Arguing against a weaker or distorted version of the other side’s view rather than what they actually said.'],
+    ['False dilemma', 'Presenting only two options when more exist: “either we do this, or everything falls apart.”'],
+    ['Slippery slope', 'Claiming that one step will inevitably lead to an extreme outcome, without showing why each step would follow.'],
+    ['Hasty generalisation', 'Drawing a broad conclusion from too few or unrepresentative examples.'],
+    ['Appeal to ignorance', 'Treating something as false because it has not been proven true, or true because it has not been proven false.'],
+    ['False cause (post hoc)', 'Assuming that because one thing happened after another, the first caused the second.'],
+    ['Whataboutism (tu quoque)', 'Deflecting criticism by pointing to someone else’s faults instead of answering it.'],
+    ['Appeal to popularity', 'Arguing that something is right because many people believe or do it.'],
+    ['Misplaced appeal to authority', 'Relying on someone’s status, or on an expert speaking outside their field, instead of on evidence.']
+  ];
+  var SOURCES = [
+    ['Stanford Encyclopedia of Philosophy: Fallacies', 'https://plato.stanford.edu/entries/fallacies/', 'an in-depth academic overview'],
+    ['Internet Encyclopedia of Philosophy: Fallacies', 'https://iep.utm.edu/fallacy/', 'a long A–Z list with examples'],
+    ['Purdue Online Writing Lab: Logical Fallacies', 'https://owl.purdue.edu/owl/general_writing/academic_writing/logic_in_argumentative_writing/fallacies.html', 'a short, practical guide']
+  ];
+  var NOTE_CLASS = { fallacy: 'tag-fallacy', overclaims: 'tag-overclaims', evidence: 'tag-evidence', value: 'tag-value', strong: 'tag-strong' };
+  function noteDef(tag, name, text) {
+    return el('div', { class: 'note-def' }, [el('dt', {}, [el('span', { class: 'tag ' + NOTE_CLASS[tag], text: name })]), el('dd', { text: text })]);
+  }
+
   function aiParagraphs(on) {
     function p(t) { return el('p', { text: t }); }
     if (!on) return [
@@ -316,7 +349,7 @@
         });
     }
     function section(id, title, kids) {
-      return el('section', { class: 'about-section', 'aria-labelledby': id }, [el('h2', { id: id, text: title })].concat(kids));
+      return el('section', { class: 'about-section', id: id, 'aria-labelledby': id + '-h' }, [el('h2', { id: id + '-h', text: title })].concat(kids));
     }
     function para(t) { return el('p', { text: t }); }
     function item(b, t) { return el('li', {}, [el('b', { text: b + ' ' }), document.createTextNode(t)]); }
@@ -344,9 +377,36 @@
       section('review', 'How contributions are reviewed', [
         el('ul', { class: 'about-list' }, [
           item('Reviewed before publishing.', 'Every new country, debate and argument is read by a reviewer before it appears. Contributors see their own submission marked “Waiting for review” in the meantime.'),
+          item('About once a day.', 'Reviews are usually done once a day, sometimes more often. A new contribution may take up to a day or so to appear.'),
           item('Same rules for every side.', 'Contributions are judged on whether they are on topic and respectful, not on which side they support.'),
-          item('Notes explain, they do not judge.', 'Some arguments carry a short note, such as “Needs evidence” or “Possible fallacy”. Tapping it shows why. Most arguments carry no note at all.'),
+          item('Notes explain, they do not judge.', 'Some arguments carry a short note, such as “Needs evidence” or “Possible fallacy”. Tapping it shows why. Most arguments carry no note at all. See “Notes on arguments” below.'),
           item('Every decision is recorded.', 'Approvals, rejections and removals are logged with the reviewer who made them.')
+        ])
+      ]),
+
+      section('notes', 'Notes on arguments', [
+        para('A note points out something a careful reader may want to know. It is about how an argument is made, never about which side it is on, and the same standards apply to every side. An argument gets at most one note, and most get none.'),
+        el('dl', { class: 'note-defs' }, [
+          noteDef('fallacy', 'Possible fallacy', 'The reasoning contains a recognised error, named in the note (for example, “Possible fallacy: Straw man”). See “Logical fallacies” below.'),
+          noteDef('overclaims', 'Overclaims', 'The conclusion goes further than the support given, for example using “always” or “proves” where the evidence shows less.'),
+          noteDef('evidence', 'Needs evidence', 'A key factual claim has no source. Arguments about values or priorities do not need one.'),
+          noteDef('value', 'Value difference', 'Not a weakness. The disagreement is about priorities rather than facts, so evidence alone cannot settle it.'),
+          noteDef('strong', 'Strong', 'Directly on point, supported by a source or checkable fact, and soundly argued. The note also says what the argument does not prove.')
+        ]),
+        para('A note is a reviewer’s assessment and can be wrong. If you think one is unfair, use “Challenge this rating”.')
+      ]),
+
+      section('fallacies', 'Logical fallacies', [
+        para('A logical fallacy is an error in reasoning: the reasons given do not actually support the conclusion, even if the argument sounds convincing. Spotting a fallacy does not mean the conclusion is false. It only means this particular argument does not establish it.'),
+        para('If an argument on Both Sides carries the note “Possible fallacy”, the note names the fallacy. Here are the ones you are most likely to see:'),
+        el('dl', { class: 'fallacy-list' }, FALLACIES.map(function (f) {
+          return el('div', { class: 'fallacy' }, [el('dt', { text: f[0] }), el('dd', { text: f[1] })]);
+        })),
+        el('div', { class: 'sources' }, [
+          el('p', { class: 'sources-title', text: 'To learn more, these sources explain logical fallacies in depth:' }),
+          el('ul', {}, SOURCES.map(function (src) {
+            return el('li', {}, [el('a', { href: src[1], target: '_blank', rel: 'noopener noreferrer', text: src[0] + ' ↗' }), el('span', { class: 'muted small', text: ' · ' + src[2] })]);
+          }))
         ])
       ]),
 
@@ -356,6 +416,16 @@
       ]),
 
       section('ai', 'What AI does', [el('div', { id: 'ai-text' }, aiParagraphs(state.aiEnabled))]),
+
+      section('disclaimer', 'Independence and disclaimer', [
+        el('ul', { class: 'about-list' }, [
+          item('An independent platform.', 'Both Sides is a non-commercial platform for setting out arguments on public questions. It is not affiliated with any government, political party, campaign, candidate or advocacy group.'),
+          item('No positions taken.', 'Both Sides does not endorse, support or promote any position, party, candidate or cause. Its purpose is to present the arguments on each side, not to argue for one.'),
+          item('Contributors’ views are their own.', 'Debates and arguments are written by users. They reflect the views of their authors, not the views of the people who created, run or review Both Sides.'),
+          item('Approval is not agreement.', 'Approving a contribution means it meets the published rules. It does not mean the reviewers agree with it.'),
+          item('Information only.', 'Content on Both Sides is for information and discussion. It is not legal, financial or professional advice.')
+        ])
+      ]),
 
       el('div', { class: 'about-cta' }, [
         el('a', { class: 'btn btn-dark as-link', href: '#home', text: 'Browse the debates' })
@@ -537,7 +607,10 @@
       box = el('div', { class: 'tag-box', hidden: true });
       if (r.tag_why) box.appendChild(el('div', {}, [el('b', { text: 'Why: ' }), document.createTextNode(r.tag_why)]));
       if (r.tag_fix) box.appendChild(el('div', {}, [el('b', { text: 'To make it stronger: ' }), document.createTextNode(r.tag_fix)]));
-      box.appendChild(el('div', { class: 'muted small', text: 'Confirmed by a reviewer' }));
+      box.appendChild(el('div', { class: 'muted small' }, [
+        document.createTextNode('Added by a reviewer · '),
+        el('a', { href: r.tag === 'fallacy' ? '#about/fallacies' : '#about/notes', text: r.tag === 'fallacy' ? 'What is a logical fallacy?' : 'What do notes mean?' })
+      ]));
       btn.addEventListener('click', function () {
         var open = box.hidden;
         box.hidden = !open;
@@ -603,7 +676,7 @@
         if (res && res.error) throw res.error;
         if (onSuccess) { onSuccess(fd); return; }
         form.innerHTML = '';
-        form.appendChild(el('p', { class: 'form-msg ok', text: 'Thanks! It has been sent for review and will appear once approved.' }));
+        form.appendChild(el('p', { class: 'form-msg ok', text: 'Thanks! It has been sent for review. Reviews usually happen once a day, so it should appear within a day or so if approved.' }));
         form.appendChild(el('button', { type: 'button', class: 'btn btn-plain', text: 'Close', onclick: function () { form.remove(); if (onDone) onDone(); } }));
       }).catch(function (err) {
         btn.disabled = false;
@@ -743,7 +816,7 @@
         .then(function () { return sendDebate(fd, topicId); });
     }, 'Something went wrong. Please check each box and try again.', function () {
       render();
-      flash('Thanks! Your debate has been sent for review. You can see it below, marked “Waiting for review”.');
+      flash('Thanks! Your debate has been sent for review. Reviews usually happen once a day. Until then you can see it below, marked “Waiting for review”.');
     });
 
     function sendDebate(fd, topicId) {
@@ -790,7 +863,7 @@
     }, 'Something went wrong. Arguments need at least 10 characters. Please try again.', function () {
       addPending({ type: 'argument', statementId: s.id, side: side, text: text });
       render();
-      flash('Thanks! Your argument has been sent for review. You can see it in the table, marked “Waiting for review”.');
+      flash('Thanks! Your argument has been sent for review. Reviews usually happen once a day. Until then you can see it in the table, marked “Waiting for review”.');
     });
     setTimeout(function () { var t = form.querySelector('textarea'); if (t) t.focus(); }, 0);
     return form;
