@@ -52,6 +52,7 @@
   function applyRoute() {
     var h = readHash();
     if (!h || h === 'home') { state.view = 'home'; state.country = ''; state.focusTopic = null; return; }
+    if (h === 'about') { state.view = 'about'; state.country = ''; state.focusTopic = null; return; }
     var parts = h.split('/');
     state.view = 'country';
     state.country = parts[0];
@@ -153,7 +154,11 @@
     content.innerHTML = '';
     if (!state.data) return;
     document.body.classList.toggle('is-home', state.view === 'home');
+    document.querySelectorAll('[data-nav]').forEach(function (a) {
+      if (a.dataset.nav === state.view) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+    });
     if (state.view === 'home') { renderHome(); return; }
+    if (state.view === 'about') { renderAbout(); return; }
 
     var country = currentCountry();
     if (state.focusTopic) {
@@ -224,15 +229,6 @@
       ])
     ]));
 
-    content.appendChild(el('section', { class: 'home-section', 'aria-labelledby': 'how' }, [
-      el('h2', { id: 'how', text: 'How it works' }),
-      el('ol', { class: 'steps' }, [
-        el('li', {}, [el('span', { class: 'step-n', text: '1' }), el('h3', { text: 'Pick a country and topic' }), el('p', { text: 'Topics are broad issues, such as housing, education or the environment.' })]),
-        el('li', {}, [el('span', { class: 'step-n', text: '2' }), el('h3', { text: 'Read both sides' }), el('p', { text: 'Each debate puts the arguments for and against next to each other, so you can weigh them for yourself.' })]),
-        el('li', {}, [el('span', { class: 'step-n', text: '3' }), el('h3', { text: 'Add your argument' }), el('p', { text: 'Post anonymously or under your name. A reviewer checks every contribution before it goes live.' })])
-      ])
-    ]));
-
     var countriesSec = el('section', { class: 'home-section', id: 'countries', 'aria-labelledby': 'countries-h' }, [
       el('h2', { id: 'countries-h', text: 'Explore by country' })
     ]);
@@ -284,13 +280,64 @@
       content.appendChild(latestSec);
     }
 
-    content.appendChild(el('section', { class: 'home-section fair', 'aria-labelledby': 'fair-h' }, [
-      el('h2', { id: 'fair-h', text: 'Fair to everyone' }),
-      el('ul', { class: 'fair-list' }, [
-        el('li', {}, [el('b', { text: 'Reviewed first. ' }), document.createTextNode('Every debate and argument is read by a reviewer before it appears, so the conversation stays respectful.')]),
-        el('li', {}, [el('b', { text: 'Explained, not judged. ' }), document.createTextNode('Some arguments carry a helpful note, such as “Needs evidence”. Tap it to see why. Most carry none.')]),
-        el('li', {}, [el('b', { text: 'No winners declared. ' }), document.createTextNode('Summaries describe what the evidence shows and what the answer depends on. They never pick a side.')]),
-        el('li', {}, [el('b', { text: 'Open to all. ' }), document.createTextNode('Take part anonymously or under your own name. Everyone is welcome.')])
+    content.appendChild(el('section', { class: 'home-section home-about' }, [
+      el('p', {}, [
+        document.createTextNode('New here? '),
+        el('a', { href: '#about', text: 'Read how Both Sides works' }),
+        document.createTextNode(', how contributions are reviewed, and how summaries are written.')
+      ])
+    ]));
+  }
+
+  // ---------- About ----------
+  function renderAbout() {
+    function section(id, title, kids) {
+      return el('section', { class: 'about-section', 'aria-labelledby': id }, [el('h2', { id: id, text: title })].concat(kids));
+    }
+    function para(t) { return el('p', { text: t }); }
+    function item(b, t) { return el('li', {}, [el('b', { text: b + ' ' }), document.createTextNode(t)]); }
+
+    content.appendChild(el('article', { class: 'about' }, [
+      el('header', { class: 'about-head' }, [
+        el('p', { class: 'hero-kicker', text: 'About' }),
+        el('h1', { class: 'about-title', text: 'Why Both Sides exists' }),
+        el('p', { class: 'hero-lead', text: 'Put the arguments side by side, and the bigger picture comes into view.' })
+      ]),
+
+      section('why', 'The idea', [
+        para('On most public questions, thoughtful people disagree. The arguments for and against are usually spread across many places, and it takes effort to find them together.'),
+        para('Both Sides brings them into one table. Each debate starts with a clear statement, then lists the strongest arguments in favor and against, next to each other. The aim is not to settle the question for anyone, but to make the whole discussion easy to see in one place.')
+      ]),
+
+      section('how', 'How it works', [
+        el('ol', { class: 'steps' }, [
+          el('li', {}, [el('span', { class: 'step-n', text: '1' }), el('h3', { text: 'Countries and topics' }), el('p', { text: 'Debates are grouped by country, then by topic: a broad issue such as housing or education.' })]),
+          el('li', {}, [el('span', { class: 'step-n', text: '2' }), el('h3', { text: 'One table per debate' }), el('p', { text: 'A statement, with arguments in favor on one side and arguments against on the other.' })]),
+          el('li', {}, [el('span', { class: 'step-n', text: '3' }), el('h3', { text: 'Anyone can contribute' }), el('p', { text: 'Suggest a country, start a debate or add an argument, anonymously or under your name.' })])
+        ])
+      ]),
+
+      section('review', 'How contributions are reviewed', [
+        el('ul', { class: 'about-list' }, [
+          item('Reviewed before publishing.', 'Every new country, debate and argument is read by a reviewer before it appears. Contributors see their own submission marked “Waiting for review” in the meantime.'),
+          item('Same rules for every side.', 'Contributions are judged on whether they are on topic and respectful, not on which side they support.'),
+          item('Notes explain, they do not judge.', 'Some arguments carry a short note, such as “Needs evidence” or “Possible fallacy”. Tapping it shows why. Most arguments carry no note at all.'),
+          item('Every decision is recorded.', 'Approvals, rejections and removals are logged with the reviewer who made them.')
+        ])
+      ]),
+
+      section('summary', 'Where the discussion stands', [
+        para('Under each debate, a short summary sets out three things: what the cited evidence supports, what is still disputed, and what would help resolve it. It shows how many arguments it is based on and when it was last reviewed.'),
+        para('Summaries describe the discussion. They never declare a winner, and they cover approved arguments only, not public opinion.')
+      ]),
+
+      section('ai', 'What AI does', [
+        para('At the moment, Both Sides does not use AI to publish or judge anything. Reviews, notes and summaries are written by people.'),
+        para('In future we plan to use AI to help: flagging possible abuse as people type, and drafting summaries for reviewers. Any AI suggestion will be checked by a person before it appears on the site, and we will update this page when that changes.')
+      ]),
+
+      el('div', { class: 'about-cta' }, [
+        el('a', { class: 'btn btn-dark as-link', href: '#home', text: 'Browse the debates' })
       ])
     ]));
   }
@@ -395,7 +442,7 @@
     row.appendChild(renderSide(s, 'favor', 'In favor'));
     row.appendChild(renderSide(s, 'against', 'Against'));
     card.appendChild(row);
-    if (s.stands_supported || s.stands_disputed || s.stands_depends) card.appendChild(renderStands(s));
+    if (hasSummary(s)) card.appendChild(renderStands(s));
     return card;
   }
 
@@ -491,21 +538,30 @@
     return li;
   }
 
+  function hasSummary(s) {
+    return !!(s.stands_supported || s.stands_disputed || s.stands_resolve || s.stands_depends);
+  }
+
   function renderStands(s) {
     function item(title, text) {
       return text ? el('div', {}, [el('span', { text: title }), el('span', { text: text })]) : null;
     }
+    var n = state.data.reasons.filter(function (r) { return r.statement_id === s.id; }).length;
+    var reviewed = '';
+    if (s.stands_reviewed_at) {
+      try { reviewed = ' · Reviewed ' + new Date(s.stands_reviewed_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }); } catch (e) { reviewed = ''; }
+    }
     return el('div', { class: 'stands' }, [
       el('div', { class: 'stands-head' }, [
-        el('h3', { text: 'Where the debate stands' }),
+        el('h3', { text: 'Where the discussion stands' }),
         s.stands_status ? el('span', { class: 'stands-status', text: s.stands_status }) : null
       ]),
       el('div', { class: 'stands-grid' }, [
-        item('What the cited evidence supports', s.stands_supported),
+        item('What the evidence supports', s.stands_supported),
         item('Still disputed', s.stands_disputed),
-        item('The answer depends on', s.stands_depends)
+        s.stands_resolve ? item('What would help resolve it', s.stands_resolve) : item('What the answer depends on', s.stands_depends)
       ]),
-      el('div', { class: 'stands-basis', text: (s.stands_basis ? s.stands_basis + ' ' : '') + 'Covers approved arguments only, not public opinion.' })
+      el('div', { class: 'stands-basis', text: 'Based on ' + n + (n === 1 ? ' argument' : ' arguments') + reviewed + '. Covers approved arguments only, not public opinion.' })
     ]);
   }
 
@@ -677,7 +733,7 @@
     countrySlot.appendChild(countryForm(function () { suggestBtn.hidden = false; suggestBtn.focus(); }));
   });
 
-  function onRoute() { applyRoute(); pickCountry(); render(); if (state.view === 'home') window.scrollTo(0, 0); }
+  function onRoute() { applyRoute(); pickCountry(); render(); if (state.view !== 'country' || !state.focusTopic) window.scrollTo(0, 0); }
   window.addEventListener('hashchange', onRoute);
   window.addEventListener('popstate', onRoute);
 

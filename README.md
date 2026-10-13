@@ -41,8 +41,10 @@ Sign in at **/review.html** (link in the site footer). First time: choose "First
 
 **Adding a reviewer:** add their email to the `admins` table (Supabase → Table Editor → admins → Insert row). They then create a password on the review page and confirm their email.
 
-You can still edit anything directly in Supabase → Table Editor, e.g. to add tags or the "Where the debate stands" text (`stands_supported`, `stands_disputed`, `stands_depends`, `stands_status`, `stands_basis`).
+- **Where the discussion stands:** in Live content, use "Write summary" / "Edit summary" under any debate. Saving sets today as the reviewed date.
+
+You can still edit anything directly in Supabase → Table Editor, e.g. to add tags to arguments.
 
 ## Upgrading an older database
 
-For a database set up before these features, run these once each, in order, in the SQL Editor: `supabase/add-countries.sql`, `supabase/add-suggestions.sql`, `supabase/review-and-debates.sql`. All are safe to run again. A brand-new database needs `schema.sql` then `review-and-debates.sql`.
+For a database set up before these features, run these once each, in order, in the SQL Editor: `supabase/add-countries.sql`, `supabase/add-suggestions.sql`, `supabase/review-and-debates.sql`, `supabase/summaries.sql`. All are safe to run again. A brand-new database needs `schema.sql`, then `review-and-debates.sql`, then `summaries.sql`.

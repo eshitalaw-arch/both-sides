@@ -51,3 +51,9 @@
 .log thead th { border-top: 0; background: #F2F0EA; font-size: 12px; color: var(--ink-2); }
 .d-approved { color: #1E5A32; font-weight: 600; }
 .d-rejected, .d-deleted { color: #8E2620; font-weight: 600; }
+
+.summary-block { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 8px; background: #F4F5F9; }
+.summary-block .side-name { color: #353C5C; font-size: 13px; font-weight: 600; }
+.summary-preview p { margin: 0; font-size: 14px; color: var(--ink-2); }
+.summary-form { background: #fff; }
+.d-summary { color: #353C5C; font-weight: 600; }

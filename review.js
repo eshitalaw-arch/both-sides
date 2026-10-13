@@ -118,7 +118,7 @@
       db.rpc('review_queue'),
       db.from('countries').select('code,name,sort').order('sort'),
       db.from('topics').select('id,country,title').order('sort').order('created_at'),
-      db.from('statements').select('id,topic_id,text,context').order('created_at'),
+      db.from('statements').select('*').order('created_at'),
       db.from('reasons').select('id,statement_id,side,text,author').order('created_at')
     ]).then(function (r) {
       var err = r[0].error || r[1].error || r[2].error || r[3].error || r[4].error;
@@ -319,7 +319,8 @@
                 return argBlock(r, [el('button', { type: 'button', class: 'btn-small btn-delete', text: 'Delete',
                   onclick: busy(null, function () { return remove('reason', r.id, r.text); }) })]);
               }) : [el('span', { class: 'muted small', text: 'No arguments.' })]));
-          }))
+          })),
+          summaryBlock(s)
         ]));
       });
       d.appendChild(body);
@@ -332,14 +333,75 @@
     ]));
   }
 
+  // "Where the discussion stands" editor
+  function summaryBlock(s) {
+    var has = s.stands_supported || s.stands_disputed || s.stands_resolve || s.stands_depends;
+    var wrap = el('div', { class: 'summary-block' });
+    var reviewed = s.stands_reviewed_at ? ' · reviewed ' + when(s.stands_reviewed_at) : '';
+    var head = el('div', { class: 'live-head' }, [
+      el('span', { class: 'side-name', text: 'Where the discussion stands' + (has ? reviewed : ' · not written yet') })
+    ]);
+    var editBtn = el('button', { type: 'button', class: 'btn-small btn-reject summary-edit', text: has ? 'Edit summary' : 'Write summary' });
+    head.appendChild(editBtn);
+    wrap.appendChild(head);
+    if (has) {
+      wrap.appendChild(el('div', { class: 'summary-preview' }, [
+        s.stands_supported ? el('p', {}, [el('b', { text: 'Supported: ' }), document.createTextNode(s.stands_supported)]) : null,
+        s.stands_disputed ? el('p', {}, [el('b', { text: 'Disputed: ' }), document.createTextNode(s.stands_disputed)]) : null,
+        (s.stands_resolve || s.stands_depends) ? el('p', {}, [el('b', { text: s.stands_resolve ? 'Would help resolve it: ' : 'Depends on: ' }), document.createTextNode(s.stands_resolve || s.stands_depends)]) : null
+      ]));
+    }
+    editBtn.addEventListener('click', function () {
+      editBtn.hidden = true;
+      function field(label, name, value, hint) {
+        return el('label', {}, [document.createTextNode(label + ' '), el('span', { class: 'muted', text: hint }),
+          el('textarea', { name: name, rows: '2', maxlength: '600' })]);
+      }
+      var form = el('form', { class: 'form summary-form' }, [
+        field('What the evidence supports', 'supported', s.stands_supported, '(facts both sides can rely on)'),
+        field('Still disputed', 'disputed', s.stands_disputed, '(what people still disagree about)'),
+        field('What would help resolve it', 'resolve', s.stands_resolve, '(evidence or steps that would settle it)'),
+        el('label', {}, [document.createTextNode('Status label '), el('span', { class: 'muted', text: '(optional, e.g. “No new arguments since 8 Oct”)' }),
+          el('input', { name: 'status', maxlength: '80' })]),
+        el('div', { class: 'form-actions' }, [
+          el('button', { type: 'submit', class: 'btn btn-approve', text: 'Save summary' }),
+          el('button', { type: 'button', class: 'btn btn-reject', text: 'Cancel', onclick: function () { form.remove(); editBtn.hidden = false; } })
+        ]),
+        el('p', { class: 'muted small', text: 'Leave all three empty to hide the summary. Saving sets today as the reviewed date.' })
+      ]);
+      form.querySelector('[name=supported]').value = s.stands_supported || '';
+      form.querySelector('[name=disputed]').value = s.stands_disputed || '';
+      form.querySelector('[name=resolve]').value = s.stands_resolve || '';
+      form.querySelector('[name=status]').value = s.stands_status || '';
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var fd = new FormData(form);
+        busy(null, function () {
+          return db.rpc('admin_set_summary', {
+            p_id: s.id, p_supported: fd.get('supported'), p_disputed: fd.get('disputed'),
+            p_resolve: fd.get('resolve'), p_status: fd.get('status')
+          }).then(function (res) {
+            if (res.error) throw res.error;
+            flash('Summary saved and live.');
+            return refresh();
+          });
+        })();
+      });
+      wrap.appendChild(form);
+      form.querySelector('textarea').focus();
+    });
+    return wrap;
+  }
+
   function renderLog() {
     var rows = state.queue.recent || [];
     if (!rows.length) { view.appendChild(el('p', { class: 'done', text: 'No decisions yet.' })); return; }
     var kinds = { country: 'Country', topic: 'Topic', statement: 'Debate', reason: 'Argument' };
+    var labels = { approved: 'Approved', rejected: 'Rejected', deleted: 'Deleted', summary: 'Summary updated' };
     var tbody = el('tbody', {}, rows.map(function (r) {
       return el('tr', {}, [
         el('td', { text: when(r.at) }),
-        el('td', { class: 'd-' + r.decision, text: r.decision.charAt(0).toUpperCase() + r.decision.slice(1) }),
+        el('td', { class: 'd-' + r.decision, text: labels[r.decision] || r.decision }),
         el('td', { text: kinds[r.kind] || r.kind }),
         el('td', { text: r.item_text || '' }),
         el('td', { text: r.by_email || '' })
