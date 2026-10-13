@@ -6,7 +6,7 @@
 
   var $ = function (id) { return document.getElementById(id); };
   var view = $('view');
-  var state = { view: 'queue', queue: null, live: null, liveCountry: null, signup: false, notes: {}, aiOn: false, editingNote: null };
+  var state = { view: 'queue', queue: null, live: null, liveCountry: null, signup: false, notes: {}, aiOn: false, drafts: {}, panel: {}, liveOpen: {} };
 
   // ---------- helpers ----------
   function el(tag, attrs, children) {
@@ -121,39 +121,6 @@
 
   fetch('/api/check').then(function (r) { return r.ok ? r.json() : {}; }).catch(function () { return {}; })
     .then(function (out) { state.aiOn = !!(out && out.enabled); if (state.queue) render(); });
-
-  // Manual note editor (works without AI)
-  function noteEditor(r) {
-    var form = el('form', { class: 'form note-form' }, [
-      el('label', {}, [document.createTextNode('Note '),
-        el('select', { name: 'tag' }, [['none', 'No note'], ['evidence', 'Needs evidence'], ['overclaims', 'Overclaims'], ['fallacy', 'Possible fallacy'], ['value', 'Value difference'], ['strong', 'Strong']]
-          .map(function (o) { return el('option', { value: o[0], text: o[1] }); }))]),
-      el('label', { class: 'fallacy-name' }, [document.createTextNode('Which fallacy? '), el('span', { class: 'muted', text: '(e.g. Personal attack)' }), el('input', { name: 'detail', maxlength: '60' })]),
-      el('label', {}, [document.createTextNode('Why '), el('span', { class: 'muted', text: '(one sentence readers will see)' }), el('textarea', { name: 'why', rows: '2', maxlength: '400' })]),
-      el('label', {}, [document.createTextNode('To improve it '), el('span', { class: 'muted', text: '(optional)' }), el('textarea', { name: 'fix', rows: '2', maxlength: '400' })]),
-      el('div', { class: 'form-actions' }, [
-        el('button', { type: 'submit', class: 'btn btn-approve', text: 'Save note' }),
-        el('button', { type: 'button', class: 'btn btn-reject', text: 'Cancel', onclick: function () { state.editingNote = null; render(); } })
-      ])
-    ]);
-    var sel = form.querySelector('select');
-    sel.value = r.tag || 'none';
-    form.querySelector('[name=detail]').value = r.tag_detail || '';
-    form.querySelector('[name=why]').value = r.tag_why || '';
-    form.querySelector('[name=fix]').value = r.tag_fix || '';
-    var sync = function () { form.querySelector('.fallacy-name').hidden = sel.value !== 'fallacy'; };
-    sel.addEventListener('change', sync); sync();
-    form.addEventListener('submit', function (e) {
-      e.preventDefault();
-      var fd = new FormData(form);
-      busy(null, function () {
-        return setNote(r.id, { tag: fd.get('tag'), detail: fd.get('detail'), why: fd.get('why'), fix: fd.get('fix') }).then(function () {
-          state.editingNote = null; flash(fd.get('tag') === 'none' ? 'Note removed.' : 'Note saved and live.'); return refresh();
-        });
-      })();
-    });
-    return form;
-  }
 
   function start() {
     db.auth.getSession().then(function (r) {
@@ -353,7 +320,7 @@
     if (!topics.length) g.appendChild(el('p', { class: 'done', text: 'No live topics in ' + country.name + '.' }));
     topics.forEach(function (t) {
       var debates = L.statements.filter(function (s) { return s.topic_id === t.id; });
-      var d = el('details', { class: 'live-topic' }, [
+      var d = el('details', { class: 'live-topic', open: !!state.liveOpen[t.id] }, [
         el('summary', {}, [
           el('span', { class: 'chev', 'aria-hidden': 'true' }),
           el('h3', { class: 'item-title', text: t.title }),
@@ -381,27 +348,24 @@
                   onclick: busy(null, function () { return remove('reason', r.id, r.text); }) })]);
                 block.appendChild(el('div', { class: 'note-current' }, [
                   el('span', { text: r.tag ? 'Note: ' + (NOTE_NAMES[r.tag] || r.tag) + (r.tag_detail ? ' (' + r.tag_detail + ')' : '') : 'No note' }),
-                  el('button', { type: 'button', class: 'btn-small btn-reject', text: r.tag ? 'Edit note' : 'Add note',
-                    onclick: function () { state.editingNote = r.id; render(); } }),
                   r.tag ? el('button', { type: 'button', class: 'btn-small btn-reject', text: 'Remove note',
                     onclick: busy(null, function () { return setNote(r.id, { tag: 'none' }).then(function () { flash('Note removed.'); return refresh(); }); }) }) : null
                 ]));
-                if (state.editingNote === r.id) block.appendChild(noteEditor(r));
                 var sug = (state.notes[s.id] || []).filter(function (n) { return n.id === r.id; })[0];
                 if (sug) {
                   block.appendChild(el('div', { class: 'note-suggest' }, [
-                    el('div', {}, [el('b', { text: 'AI suggests: ' + NOTE_NAMES[sug.tag] + (sug.detail ? ' (' + sug.detail + ')' : '') })]),
+                    el('div', {}, [el('b', { text: 'AI draft: ' + NOTE_NAMES[sug.tag] + (sug.detail ? ' (' + sug.detail + ')' : '') })]),
                     sug.why ? el('div', { text: 'Why: ' + sug.why }) : null,
                     sug.fix ? el('div', { text: 'To improve: ' + sug.fix }) : null,
                     el('div', { class: 'actions' }, [
-                      sug.tag !== 'none' || r.tag ? el('button', { type: 'button', class: 'btn-small btn-approve', text: sug.tag === 'none' ? 'Apply (remove note)' : 'Apply this note',
+                      sug.tag !== 'none' || r.tag ? el('button', { type: 'button', class: 'btn-small btn-approve', text: sug.tag === 'none' ? 'Publish (remove note)' : 'Publish as written',
                         onclick: busy(null, function () {
                           return setNote(r.id, sug).then(function () {
                             state.notes[s.id] = state.notes[s.id].filter(function (n) { return n.id !== r.id; });
                             flash('Note saved and live.'); return refresh();
                           });
                         }) }) : null,
-                      el('button', { type: 'button', class: 'btn-small btn-reject', text: 'Ignore', onclick: function () {
+                      el('button', { type: 'button', class: 'btn-small btn-reject', text: 'Discard', onclick: function () {
                         state.notes[s.id] = state.notes[s.id].filter(function (n) { return n.id !== r.id; }); render();
                       } })
                     ])
@@ -410,21 +374,11 @@
                 return block;
               }) : [el('span', { class: 'muted small', text: 'No arguments.' })]));
           })),
-          state.aiOn && args.length ? el('div', { class: 'actions' }, [
-            el('button', { type: 'button', class: 'btn-small btn-reject', text: 'Suggest notes with AI',
-              onclick: busy(null, function () {
-                return assist('notes', s.id).then(function (out) {
-                  state.notes[s.id] = out.notes || [];
-                  var real = state.notes[s.id].filter(function (n) { return n.tag !== 'none'; }).length;
-                  flash(real ? 'AI suggested ' + real + (real === 1 ? ' note' : ' notes') + '. Review each one below.' : 'AI suggests no notes for this debate.');
-                  render();
-                });
-              }) })
-          ]) : null,
-          summaryBlock(s)
+          summaryBlock(s, t, args)
         ]));
       });
       d.appendChild(body);
+      d.addEventListener('toggle', function () { state.liveOpen[t.id] = d.open; });
       g.appendChild(d);
     });
     view.appendChild(g);
@@ -434,16 +388,18 @@
     ]));
   }
 
-  // "Where the discussion stands" editor
-  function summaryBlock(s) {
+  // "Where the discussion stands" + notes: drafted by AI, published as written (never retyped by hand)
+  function summaryBlock(s, topic, args) {
+    var AI = window.BOTH_SIDES_AI_INSTRUCTIONS;
     var has = s.stands_supported || s.stands_disputed || s.stands_resolve || s.stands_depends;
     var wrap = el('div', { class: 'summary-block' });
     var reviewed = s.stands_reviewed_at ? ' · reviewed ' + when(s.stands_reviewed_at) : '';
+    var open = !!state.panel[s.id];
     var head = el('div', { class: 'live-head' }, [
-      el('span', { class: 'side-name', text: 'Where the discussion stands' + (has ? reviewed : ' · not written yet') })
+      el('span', { class: 'side-name', text: 'Summary and notes' + (has ? reviewed : ' · no summary yet') }),
+      open ? null : el('button', { type: 'button', class: 'btn-small btn-reject summary-edit', text: has ? 'Update with AI' : 'Draft with AI',
+        onclick: function () { state.panel[s.id] = true; render(); } })
     ]);
-    var editBtn = el('button', { type: 'button', class: 'btn-small btn-reject summary-edit', text: has ? 'Edit summary' : 'Write summary' });
-    head.appendChild(editBtn);
     wrap.appendChild(head);
     if (has) {
       wrap.appendChild(el('div', { class: 'summary-preview' }, [
@@ -452,55 +408,101 @@
         (s.stands_resolve || s.stands_depends) ? el('p', {}, [el('b', { text: s.stands_resolve ? 'Would help resolve it: ' : 'Depends on: ' }), document.createTextNode(s.stands_resolve || s.stands_depends)]) : null
       ]));
     }
-    editBtn.addEventListener('click', function () {
-      editBtn.hidden = true;
-      function field(label, name, value, hint) {
-        return el('label', {}, [document.createTextNode(label + ' '), el('span', { class: 'muted', text: hint }),
-          el('textarea', { name: name, rows: '2', maxlength: '600' })]);
+    if (!open) return wrap;
+
+    var debate = {
+      topic: topic.title, statement: s.text, context: s.context,
+      arguments: args.map(function (r) { return { id: r.id, side: r.side, text: r.text, source: r.source_label || r.source_url || '' }; })
+    };
+    var draft = state.drafts[s.id];
+    var panel = el('div', { class: 'ai-panel' });
+
+    function useDraft(out) {
+      state.drafts[s.id] = { supported: out.supported || '', disputed: out.disputed || '', resolve: out.resolve || '' };
+      state.notes[s.id] = (out.notes || []).filter(function (n) { return args.some(function (a) { return a.id === n.id; }); });
+      render();
+    }
+
+    if (!draft) {
+      if (!args.length) panel.appendChild(el('p', { class: 'muted small', text: 'This debate has no arguments yet, so there is nothing to summarise.' }));
+      else if (state.aiOn) {
+        panel.appendChild(el('div', { class: 'actions' }, [
+          el('button', { type: 'button', class: 'btn btn-approve', text: 'Ask the AI now', onclick: busy(null, function () {
+            return Promise.all([assist('summary', s.id), assist('notes', s.id)]).then(function (r) {
+              useDraft({ supported: r[0].supported, disputed: r[0].disputed, resolve: r[0].resolve, notes: r[1].notes });
+            });
+          }) })
+        ]));
+      } else {
+        var text = AI.forDebate(debate);
+        var copied = el('span', { class: 'muted small' });
+        var reply = el('textarea', { rows: '6', placeholder: 'Paste the AI’s full reply here (it starts with SUPPORTED:)' });
+        var readMsg = el('p', { class: 'form-msg err' });
+        panel.appendChild(el('ol', { class: 'ai-steps' }, [
+          el('li', {}, [
+            el('div', {}, [el('b', { text: 'Step 1: Copy this debate for the AI. ' }), document.createTextNode('It includes the fixed public instructions, so every draft follows the same rules.')]),
+            el('div', { class: 'actions' }, [
+              el('button', { type: 'button', class: 'btn btn-dark ai-copy', text: 'Copy debate for AI', onclick: function () {
+                var done = function () { copied.textContent = 'Copied. Now paste it into a chat with Claude (claude.ai) and send it.'; };
+                if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, function () { copied.textContent = 'Copy failed. Use “Show the text” below.'; });
+                else copied.textContent = 'Use “Show the text” below to copy it.';
+              } }),
+              copied
+            ]),
+            el('details', {}, [el('summary', { class: 'muted small', text: 'Show the text' }), el('textarea', { rows: '8', readonly: true, class: 'copy-text' }, [])])
+          ]),
+          el('li', {}, [
+            el('div', {}, [el('b', { text: 'Step 2: Paste the AI’s reply. ' }), document.createTextNode('Paste it exactly as it came back. If it doesn’t look right, ask the AI for a new one rather than editing it.')]),
+            reply,
+            el('div', { class: 'actions' }, [
+              el('button', { type: 'button', class: 'btn btn-approve ai-read', text: 'Read the reply', onclick: function () {
+                var out = AI.parseReply(reply.value);
+                if (!out.supported && !out.disputed && !out.resolve && !out.notes.length) {
+                  readMsg.textContent = 'That doesn’t look like a reply in the right format. Make sure you pasted all of it.';
+                  return;
+                }
+                useDraft(out);
+              } })
+            ]),
+            readMsg
+          ])
+        ]));
+        panel.querySelector('.copy-text').value = text;
       }
-      var form = el('form', { class: 'form summary-form' }, [
-        field('What the evidence supports', 'supported', s.stands_supported, '(facts both sides can rely on)'),
-        field('Still disputed', 'disputed', s.stands_disputed, '(what people still disagree about)'),
-        field('What would help resolve it', 'resolve', s.stands_resolve, '(evidence or steps that would settle it)'),
-        el('label', {}, [document.createTextNode('Status label '), el('span', { class: 'muted', text: '(optional, e.g. “No new arguments since 8 Oct”)' }),
-          el('input', { name: 'status', maxlength: '80' })]),
-        el('p', { class: 'ai-draft-note muted small', hidden: true, text: 'AI draft. Read it carefully and edit before saving.' }),
-        el('div', { class: 'form-actions' }, [
-          !state.aiOn ? null : el('button', { type: 'button', class: 'btn btn-reject ai-draft-btn', text: 'Draft with AI', onclick: function () {
-            var b = form.querySelector('.ai-draft-btn'); b.disabled = true; b.textContent = 'Drafting…';
-            assist('summary', s.id).then(function (out) {
-              form.querySelector('[name=supported]').value = out.supported || '';
-              form.querySelector('[name=disputed]').value = out.disputed || '';
-              form.querySelector('[name=resolve]').value = out.resolve || '';
-              form.querySelector('.ai-draft-note').hidden = false;
-            }).catch(function (e) { notice(e.message); }).then(function () { b.disabled = false; b.textContent = 'Draft with AI'; });
-          } }),
-          el('button', { type: 'submit', class: 'btn btn-approve', text: 'Save summary' }),
-          el('button', { type: 'button', class: 'btn btn-reject', text: 'Cancel', onclick: function () { form.remove(); editBtn.hidden = false; } })
-        ]),
-        el('p', { class: 'muted small', text: 'Leave all three empty to hide the summary. Saving sets today as the reviewed date.' })
-      ]);
-      form.querySelector('[name=supported]').value = s.stands_supported || '';
-      form.querySelector('[name=disputed]').value = s.stands_disputed || '';
-      form.querySelector('[name=resolve]').value = s.stands_resolve || '';
-      form.querySelector('[name=status]').value = s.stands_status || '';
-      form.addEventListener('submit', function (e) {
-        e.preventDefault();
-        var fd = new FormData(form);
-        busy(null, function () {
-          return db.rpc('admin_set_summary', {
-            p_id: s.id, p_supported: fd.get('supported'), p_disputed: fd.get('disputed'),
-            p_resolve: fd.get('resolve'), p_status: fd.get('status')
-          }).then(function (res) {
-            if (res.error) throw res.error;
-            flash('Summary saved and live.');
-            return refresh();
+      panel.appendChild(el('div', { class: 'actions' }, [
+        el('button', { type: 'button', class: 'btn btn-reject', text: 'Close', onclick: function () { delete state.panel[s.id]; render(); } }),
+        has ? el('button', { type: 'button', class: 'btn btn-delete', text: 'Remove the summary', onclick: busy(null, function () {
+          if (!window.confirm('Remove this debate’s summary from the site?')) return;
+          return db.rpc('admin_set_summary', { p_id: s.id, p_supported: '', p_disputed: '', p_resolve: '', p_status: '' }).then(function (res) {
+            if (res.error) throw res.error; delete state.panel[s.id]; flash('Summary removed.'); return refresh();
           });
-        })();
-      });
-      wrap.appendChild(form);
-      form.querySelector('textarea').focus();
-    });
+        }) }) : null
+      ]));
+    } else {
+      var status = el('input', { maxlength: '80', placeholder: 'e.g. No new arguments since 8 Oct' });
+      status.value = s.stands_status || '';
+      var nNotes = (state.notes[s.id] || []).filter(function (n) { return n.tag !== 'none'; }).length;
+      panel.appendChild(el('div', { class: 'draft' }, [
+        el('div', { class: 'draft-title', text: 'AI draft, exactly as written' }),
+        el('p', {}, [el('b', { text: 'What the evidence supports: ' }), document.createTextNode(draft.supported || '—')]),
+        el('p', {}, [el('b', { text: 'Still disputed: ' }), document.createTextNode(draft.disputed || '—')]),
+        el('p', {}, [el('b', { text: 'What would help resolve it: ' }), document.createTextNode(draft.resolve || '—')]),
+        el('p', { class: 'muted small', text: nNotes ? 'The AI also suggested ' + nNotes + (nNotes === 1 ? ' note' : ' notes') + '. Each one is shown under its argument above, with Publish and Discard buttons.' : 'The AI suggested no notes for these arguments.' })
+      ]));
+      panel.appendChild(el('label', { class: 'status-label' }, [document.createTextNode('Status label '), el('span', { class: 'muted', text: '(optional, factual only)' }), status]));
+      panel.appendChild(el('div', { class: 'actions' }, [
+        el('button', { type: 'button', class: 'btn btn-approve ai-publish', text: 'Publish summary as written', onclick: busy(null, function () {
+          return db.rpc('admin_set_summary', { p_id: s.id, p_supported: draft.supported, p_disputed: draft.disputed, p_resolve: draft.resolve, p_status: status.value }).then(function (res) {
+            if (res.error) throw res.error;
+            delete state.drafts[s.id]; delete state.panel[s.id];
+            flash('Summary published.'); return refresh();
+          });
+        }) }),
+        el('button', { type: 'button', class: 'btn btn-reject', text: 'Discard and ask again', onclick: function () { delete state.drafts[s.id]; render(); } })
+      ]));
+      panel.appendChild(el('p', { class: 'muted small', text: 'Reviewers publish or discard AI drafts; they do not edit the wording. This keeps the site’s label “drafted by AI, not rewritten” true.' }));
+    }
+    wrap.appendChild(panel);
     return wrap;
   }
 

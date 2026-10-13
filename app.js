@@ -325,21 +325,20 @@
 
   function aiParagraphs(on) {
     function p(t) { return el('p', { text: t }); }
-    if (!on) return [
-      p('Reviewers use AI tools to help with their work, and a person always makes the final decision.'),
-      el('ul', { class: 'about-list' }, [
-        el('li', {}, [el('b', { text: 'Drafting summaries. ' }), document.createTextNode('AI helps draft the “Where the discussion stands” summary for a debate. A reviewer reads it against the arguments, edits it, and only then publishes it.')]),
-        el('li', {}, [el('b', { text: 'Suggesting notes. ' }), document.createTextNode('AI helps spot arguments that may need a note, such as “Needs evidence” or a possible logical fallacy. A reviewer decides whether a note is added and what it says.')])
-      ]),
-      p('AI does not decide what is published, and it is asked to apply the same standards to every side. It can still make mistakes, so if you think a note or summary is unfair, use “Challenge this rating” or contact us.')
+    var items = [
+      el('li', {}, [el('b', { text: 'Summaries and notes are drafted by AI. ' }), document.createTextNode('Every “Where the discussion stands” summary and every note on an argument is drafted by an AI model, working only from the arguments published on that page and following the instructions shown below.')]),
+      el('li', {}, [el('b', { text: 'Reviewers check; they do not rewrite. ' }), document.createTextNode('A reviewer reads each draft against the arguments and either publishes it exactly as written or discards it and asks the AI for a new one. Reviewers do not change the AI’s wording.')])
     ];
+    if (on) items.push(el('li', {}, [el('b', { text: 'A tone check when you submit. ' }), document.createTextNode('If something reads as insulting, threatening or personal, AI points it out and suggests kinder wording. It never blocks you and never judges which side you are on.')]));
+    var AI = window.BOTH_SIDES_AI_INSTRUCTIONS;
     return [
-      p('AI helps in a few limited ways, and a person always makes the final decision.'),
-      el('ul', { class: 'about-list' }, [
-        el('li', {}, [el('b', { text: 'A tone check when you submit. ' }), document.createTextNode('If something reads as insulting, threatening or personal, AI points it out and suggests kinder wording. It never blocks you and never judges which side you are on. You can always post as written for a reviewer to decide.')]),
-        el('li', {}, [el('b', { text: 'Drafts for reviewers. ' }), document.createTextNode('AI can draft the “Where the discussion stands” summary and suggest notes on arguments. Reviewers edit or discard these drafts; nothing AI writes is published without a person approving it.')])
-      ]),
-      p('AI can make mistakes. If you think a note or summary is unfair, use “Challenge this rating” or contact us.')
+      p('AI helps with the parts of Both Sides where neutrality matters most, under fixed public rules.'),
+      el('ul', { class: 'about-list' }, items),
+      p('AI does not decide what is published, and it can make mistakes. If you think a note or summary is wrong, use “Challenge this rating” and a new draft can be requested.'),
+      AI ? el('details', { class: 'instructions' }, [
+        el('summary', { text: 'Read the exact instructions the AI follows' }),
+        el('pre', { text: AI.publicText })
+      ]) : null
     ];
   }
 
@@ -383,7 +382,7 @@
           item('Reviewed before publishing.', 'Every new country, debate and argument is read by a reviewer before it appears. Contributors see their own submission marked “Waiting for review” in the meantime.'),
           item('About once a day.', 'Reviews are usually done once a day, sometimes more often. A new contribution may take up to a day or so to appear.'),
           item('Same rules for every side.', 'Contributions are judged on whether they are on topic and respectful, not on which side they support.'),
-          item('Notes explain, they do not judge.', 'Some arguments carry a short note, such as “Needs evidence” or “Possible fallacy”. Tapping it shows why. Most arguments carry no note at all. See “Notes on arguments” below.'),
+          item('Notes explain, they do not judge.', 'Some arguments carry a short note, such as “Needs evidence” or “Possible fallacy”. Notes are suggested by AI and confirmed by a reviewer. Tapping one shows why. Most arguments carry no note at all.'),
           item('Every decision is recorded.', 'Approvals, rejections and removals are logged with the reviewer who made them.')
         ])
       ]),
@@ -397,7 +396,7 @@
           noteDef('value', 'Value difference', 'Not a weakness. The disagreement is about priorities rather than facts, so evidence alone cannot settle it.'),
           noteDef('strong', 'Strong', 'Directly on point, supported by a source or checkable fact, and soundly argued. The note also says what the argument does not prove.')
         ]),
-        para('A note is a reviewer’s assessment and can be wrong. If you think one is unfair, use “Challenge this rating”.')
+        para('Notes are suggested by AI and confirmed by a reviewer. They can be wrong. If you think one is unfair, use “Challenge this rating”.')
       ]),
 
       section('fallacies', 'Logical fallacies', [
@@ -415,7 +414,7 @@
       ]),
 
       section('summary', 'Where the discussion stands', [
-        para('Under each debate, a short summary sets out three things: what the cited evidence supports, what is still disputed, and what would help resolve it. It shows how many arguments it is based on and when it was last reviewed.'),
+        para('Under each debate, a short summary sets out three things: what the cited evidence supports, what is still disputed, and what would help resolve it. It is drafted by AI from the published arguments (see “What AI does” below), and shows how many arguments it is based on and when it was last reviewed.'),
         para('Summaries describe the discussion. They never declare a winner, and they cover approved arguments only, not public opinion.')
       ]),
 
@@ -427,7 +426,7 @@
           item('The creator takes no position.', 'The creator and the reviewers of Both Sides do not endorse, support or promote any position, party, candidate or cause, including any argument published on this site. The platform exists to present arguments from every side, not to argue for one.'),
           item('All content is written by users.', 'Every debate and argument on Both Sides is written by a user and reflects only that user’s views. Nothing published here represents the personal views of the platform’s creator or reviewers.'),
           item('Approval is not agreement.', 'When a reviewer approves a contribution, it only means the contribution meets the published rules. It does not mean the creator or reviewers agree with it.'),
-          item('Notes and summaries are not opinions on the issue.', 'Notes and “Where the discussion stands” summaries describe how the arguments are made and what the evidence shows. They do not express the creator’s or reviewers’ view on the question.'),
+          item('Notes and summaries are not opinions on the issue.', 'Notes and “Where the discussion stands” summaries are drafted by AI and describe how the arguments are made and what the evidence shows. They are not written by, and do not express the view of, the creator or reviewers.'),
           item('Information only.', 'Content on Both Sides is for information and discussion. It is not legal, financial or professional advice.')
         ])
       ]),
@@ -613,7 +612,7 @@
       if (r.tag_why) box.appendChild(el('div', {}, [el('b', { text: 'Why: ' }), document.createTextNode(r.tag_why)]));
       if (r.tag_fix) box.appendChild(el('div', {}, [el('b', { text: 'To make it stronger: ' }), document.createTextNode(r.tag_fix)]));
       box.appendChild(el('div', { class: 'muted small' }, [
-        document.createTextNode('Added by a reviewer · '),
+        document.createTextNode('Suggested by AI, confirmed by a reviewer · '),
         el('a', { href: r.tag === 'fallacy' ? '#about/fallacies' : '#about/notes', text: r.tag === 'fallacy' ? 'What is a logical fallacy?' : 'What do notes mean?' })
       ]));
       btn.addEventListener('click', function () {
@@ -660,7 +659,10 @@
         item('Still disputed', s.stands_disputed),
         s.stands_resolve ? item('What would help resolve it', s.stands_resolve) : item('What the answer depends on', s.stands_depends)
       ]),
-      el('div', { class: 'stands-basis', text: 'Based on ' + n + (n === 1 ? ' argument' : ' arguments') + reviewed + '. Covers approved arguments only, not public opinion.' })
+      el('div', { class: 'stands-basis' }, [
+        document.createTextNode('Drafted by AI from the published arguments and checked by a reviewer, not rewritten. Based on ' + n + (n === 1 ? ' argument' : ' arguments') + reviewed + '. Covers approved arguments only, not public opinion. '),
+        el('a', { href: '#about/ai', text: 'How summaries are made' })
+      ])
     ]);
   }
 

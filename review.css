@@ -64,3 +64,14 @@
 
 .note-form { background: #fff; margin-top: 6px; }
 .note-form select { min-height: 40px; }
+
+.ai-panel { display: flex; flex-direction: column; gap: 12px; padding: 12px; border-radius: 8px; background: #fff; border: 1px solid var(--line); }
+.ai-steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 14px; font-size: 14px; }
+.ai-steps li { display: flex; flex-direction: column; gap: 8px; }
+.ai-steps textarea, .status-label input { width: 100%; padding: 10px 12px; border: 1px solid #C9C5BA; border-radius: 8px; font: inherit; font-size: 14px; }
+.copy-text { margin-top: 6px; background: #FBFAF7; }
+.draft { display: flex; flex-direction: column; gap: 6px; padding: 12px; border-radius: 8px; background: #F4F5F9; }
+.draft-title { font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: #353C5C; }
+.draft p { margin: 0; font-size: 14px; }
+.status-label { display: block; font-size: 14px; font-weight: 600; }
+.status-label input { display: block; margin-top: 6px; font-weight: 400; }

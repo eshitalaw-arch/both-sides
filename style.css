@@ -283,3 +283,7 @@ details.topic { display: flex; flex-direction: column; }
 .sources ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
 .footer-disclaimer { flex-basis: 100%; margin: 4px 0 0; font-size: 12px; color: var(--muted); line-height: 1.5; max-width: 820px; }
 .about-section { scroll-margin-top: 16px; }
+
+.instructions { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.instructions summary { cursor: pointer; padding: 12px 16px; font-weight: 600; }
+.instructions pre { margin: 0; padding: 0 16px 16px; white-space: pre-wrap; font-family: inherit; font-size: 14px; line-height: 1.6; color: var(--ink-2); }

@@ -4,27 +4,11 @@
 
 const { aiEnabled, askJson, dbGet, isReviewer, readBody } = require('./_ai');
 
-const RULES = `You assist human reviewers of a neutral debate website. Each debate has a statement and arguments in favor and against.
-Be strictly even-handed: never favor a side, never declare a winner, and judge reasoning the same way whichever side it supports.
-Use only the arguments provided; do not add outside facts.`;
+const I = require('../ai-instructions.js');
 
-const SUMMARY = RULES + `
-Draft "Where the discussion stands" in plain, neutral English. Three parts, each one or two short sentences:
-- supported: what the arguments' cited facts or sources establish, or that nothing is established yet
-- disputed: what the two sides still disagree about
-- resolve: what evidence, data or step would help resolve the disagreement
-Reply with JSON only: {"supported": "...", "disputed": "...", "resolve": "..."}`;
+const SUMMARY = I.general + '\n\n' + I.summary + '\nReply with JSON only: {"supported": "...", "disputed": "...", "resolve": "..."}';
 
-const NOTES = RULES + `
-For each argument, suggest at most one note, or none. Most arguments should get none. Decide in this order:
-1. "fallacy": a recognisable reasoning flaw (name it in "detail", e.g. "Personal attack", "Appeal to ignorance", "Straw man"). Not for blunt or unpopular arguments.
-2. "overclaims": the conclusion goes further than the support given (e.g. "always", "every", "proves").
-3. "evidence": a key factual claim has no source. Value arguments do not need a source.
-4. "value": not a weakness; the disagreement is about priorities rather than facts.
-5. "strong": only if directly on point, supported by a source or checkable fact, and soundly argued.
-Otherwise use "none".
-For each note give "why" (one sentence) and, except for "value" and "strong", "fix" (one sentence on how to improve it). For "strong", "why" should also say what the argument does not prove.
-Reply with JSON only: {"notes": [{"id": <argument id>, "tag": "fallacy|overclaims|evidence|value|strong|none", "detail": "", "why": "", "fix": ""}]}`;
+const NOTES = I.general + '\n\n' + I.notes + '\nUse lowercase tags in JSON (fallacy, overclaims, evidence, value, strong, none).\nReply with JSON only: {"notes": [{"id": <argument number>, "tag": "...", "detail": "", "why": "", "fix": ""}]}';
 
 const TAGS = ['fallacy', 'overclaims', 'evidence', 'value', 'strong', 'none'];
 
