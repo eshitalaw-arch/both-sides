@@ -8,6 +8,8 @@ create table if not exists countries (
   code       text primary key check (code ~ '^[a-z0-9-]{2,40}$'),  -- short id, e.g. 'uk', 'brazil'
   name       text not null,                                       -- shown on the tab
   sort       int  not null default 100,                           -- lower numbers appear first
+  status     text not null default 'pending' check (status in ('pending', 'approved', 'rejected')),
+  note       text check (note is null or char_length(note) <= 300), -- suggester's reason
   created_at timestamptz not null default now()
 );
 
@@ -15,7 +17,8 @@ create table if not exists topics (
   id         bigint generated always as identity primary key,
   country    text not null references countries(code) on update cascade,
   title      text not null,
-  sort       int  not null default 0,
+  sort       int  not null default 100,
+  status     text not null default 'pending' check (status in ('pending', 'approved', 'rejected')),
   created_at timestamptz not null default now()
 );
 
@@ -58,11 +61,29 @@ alter table topics     enable row level security;
 alter table statements enable row level security;
 alter table reasons    enable row level security;
 
-create policy "Anyone can read countries"
-  on countries for select using (true);
+create policy "Anyone can read approved countries"
+  on countries for select using (status = 'approved');
 
-create policy "Anyone can read topics"
-  on topics for select using (true);
+create policy "Anyone can suggest a country for review"
+  on countries for insert
+  with check (
+    status = 'pending'
+    and code ~ '^[a-z0-9-]{2,40}$'
+    and char_length(name) between 2 and 60
+    and sort = 100
+  );
+
+create policy "Anyone can read approved topics"
+  on topics for select using (status = 'approved');
+
+create policy "Anyone can suggest a topic for review"
+  on topics for insert
+  with check (
+    status = 'pending'
+    and char_length(title) between 3 and 100
+    and sort = 100
+    and exists (select 1 from countries c where c.code = country and c.status = 'approved')
+  );
 
 create policy "Anyone can read approved statements"
   on statements for select using (status = 'approved');
@@ -79,6 +100,7 @@ create policy "Anyone can submit a statement for review"
     and (context is null or char_length(context) <= 300)
     and stands_supported is null and stands_disputed is null and stands_depends is null
     and stands_status is null and stands_basis is null
+    and exists (select 1 from topics t where t.id = topic_id and t.status = 'approved')
   );
 
 -- Reasons arrive as 'pending', untagged, and only on approved statements.
@@ -96,14 +118,14 @@ create policy "Anyone can submit a reason for review"
 -- The policies above still decide WHICH rows it can see or add.
 grant usage on schema public to anon, authenticated;
 grant select on countries, topics, statements, reasons to anon, authenticated;
-grant insert on statements, reasons to anon, authenticated;
+grant insert on countries, topics, statements, reasons to anon, authenticated;
 
 -- 3. Starting topics ---------------------------------------------------------
 
-insert into countries (code, name, sort) values
-  ('india', 'India', 1),
-  ('us',    'United States', 2);
+insert into countries (code, name, sort, status) values
+  ('india', 'India', 1, 'approved'),
+  ('us',    'United States', 2, 'approved');
 
-insert into topics (country, title, sort) values
-  ('india', 'Election Commission protests', 1),
-  ('us',    'Immigration',                  1);
+insert into topics (country, title, sort, status) values
+  ('india', 'Election Commission protests', 1, 'approved'),
+  ('us',    'Immigration',                  1, 'approved');

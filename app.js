@@ -104,10 +104,24 @@
 
     var topics = state.data.topics.filter(function (t) { return t.country === state.country; });
     if (!topics.length) {
-      content.appendChild(el('p', { class: 'empty', text: 'No topics yet for this country.' }));
-      return;
+      content.appendChild(el('p', { class: 'empty', text: 'No topics yet for this country. Propose the first one.' }));
     }
     topics.forEach(function (topic) { content.appendChild(renderTopic(topic)); });
+    if (state.country) content.appendChild(renderProposeTopic(state.country));
+  }
+
+  function renderProposeTopic(countryCode) {
+    var country = state.countries.filter(function (c) { return c.code === countryCode; })[0];
+    var box = el('section', { class: 'propose-topic', 'aria-label': 'Propose a topic' });
+    var slot = el('div');
+    var btn = el('button', { type: 'button', class: 'btn btn-plain', text: '+ Propose a new topic' + (country ? ' for ' + country.name : '') });
+    btn.addEventListener('click', function () {
+      btn.hidden = true;
+      slot.appendChild(topicForm(countryCode, country ? country.name : '', function () { btn.hidden = false; btn.focus(); }));
+    });
+    box.appendChild(btn);
+    box.appendChild(slot);
+    return box;
   }
 
   function renderTabs() {
@@ -277,13 +291,48 @@
         console.error(err);
         btn.disabled = false;
         msg.className = 'form-msg err';
-        msg.textContent = 'Something went wrong. Check the length (at least 10 characters) and try again.';
+        msg.textContent = (err && err.friendly) || 'Something went wrong. Check the length (at least 10 characters) and try again.';
       });
     });
   }
 
   function focusFirst(form) {
     setTimeout(function () { var t = form.querySelector('textarea'); if (t) t.focus(); }, 0);
+  }
+
+  function slugify(name) {
+    return name.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
+  }
+
+  function countryForm(onDone) {
+    var form = document.getElementById('tpl-add-country').content.firstElementChild.cloneNode(true);
+    wireForm(form, onDone, function (fd) {
+      var name = (fd.get('name') || '').trim().replace(/\s+/g, ' ');
+      var note = (fd.get('note') || '').trim();
+      var code = slugify(name);
+      if (code.length < 2) {
+        return Promise.reject({ friendly: 'Please write the country name using English letters.' });
+      }
+      return db.from('countries').insert({ code: code, name: name, note: note || null }).then(function (res) {
+        if (res.error && res.error.code === '23505') {
+          res.error.friendly = 'That country is already on the site or waiting for review.';
+        }
+        return res;
+      });
+    });
+    setTimeout(function () { var i = form.querySelector('input'); if (i) i.focus(); }, 0);
+    return form;
+  }
+
+  function topicForm(countryCode, countryName, onDone) {
+    var form = document.getElementById('tpl-add-topic').content.firstElementChild.cloneNode(true);
+    if (countryName) form.querySelector('h3').textContent = 'Propose a topic for ' + countryName;
+    wireForm(form, onDone, function (fd) {
+      return db.from('topics').insert({ country: countryCode, title: (fd.get('title') || '').trim().replace(/\s+/g, ' ') });
+    });
+    setTimeout(function () { var i = form.querySelector('input'); if (i) i.focus(); }, 0);
+    return form;
   }
 
   function statementForm(topic, onDone) {
@@ -318,6 +367,14 @@
   }
 
   // ---------- start ----------
+  var suggestBtn = document.getElementById('suggest-country');
+  var countrySlot = document.getElementById('country-form-slot');
+  suggestBtn.hidden = !configured;
+  suggestBtn.addEventListener('click', function () {
+    suggestBtn.hidden = true;
+    countrySlot.appendChild(countryForm(function () { suggestBtn.hidden = false; suggestBtn.focus(); }));
+  });
+
   window.addEventListener('hashchange', function () { state.country = readHash(); pickCountry(); render(); });
 
   if (configured && window.supabase) {

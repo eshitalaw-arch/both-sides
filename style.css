@@ -40,6 +40,12 @@ a:hover { color: #163F70; }
 .brand-tag { font-size: 13px; color: var(--muted); }
 .tabs { display: flex; flex-wrap: wrap; gap: 4px; background: #EFEDE6; padding: 4px; border-radius: 10px; }
 .tabs[hidden] { display: none; }
+.header-right { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.btn-suggest { min-height: 40px; padding: 0 12px; border: 1px dashed #C9C5BA; border-radius: 8px; background: transparent; color: var(--ink-2); font: inherit; font-size: 14px; cursor: pointer; }
+.btn-suggest:hover { background: #EFEDE6; }
+.add-country, .add-topic { max-width: 560px; }
+.propose-topic { display: flex; flex-direction: column; gap: 12px; padding-top: 8px; border-top: 1px solid var(--line); }
+.propose-topic > .btn { align-self: flex-start; }
 .tab { min-height: 40px; padding: 0 16px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; }
 .tab[aria-pressed="true"] { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
 

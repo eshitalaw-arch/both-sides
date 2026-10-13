@@ -17,12 +17,16 @@
         <a href="/" class="brand-name">Both Sides</a>
         <span class="brand-tag">One table. Reasons for, reasons against.</span>
       </div>
-      <nav class="tabs" id="tabs" aria-label="Country" hidden></nav>
+      <div class="header-right">
+        <nav class="tabs" id="tabs" aria-label="Country" hidden></nav>
+        <button type="button" id="suggest-country" class="btn-suggest">+ Suggest a country</button>
+      </div>
     </div>
   </header>
 
   <main class="wrap main">
     <div id="notice" class="notice" hidden></div>
+    <div id="country-form-slot"></div>
     <div id="content" aria-live="polite">
       <p class="muted">Loading…</p>
     </div>
@@ -42,6 +46,39 @@
       </label>
       <label>One line of context <span class="muted">(optional)</span>
         <input name="context" maxlength="300" placeholder="What this is about, and what it is not about">
+      </label>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-dark">Submit for review</button>
+        <button type="button" class="btn btn-plain" data-cancel>Cancel</button>
+      </div>
+      <p class="form-msg" role="status"></p>
+    </form>
+  </template>
+
+  <template id="tpl-add-country">
+    <form class="form add-country">
+      <h3>Suggest a country</h3>
+      <p class="muted small">Suggest a country whose debates should be on Both Sides. It gets its own tab once it has been reviewed.</p>
+      <label>Country name <span class="muted">(in English)</span>
+        <input name="name" maxlength="60" required minlength="2" placeholder="e.g. United Kingdom">
+      </label>
+      <label>Which debate would you like to see there? <span class="muted">(optional)</span>
+        <textarea name="note" rows="2" maxlength="300" placeholder="e.g. The new online safety law"></textarea>
+      </label>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-dark">Submit for review</button>
+        <button type="button" class="btn btn-plain" data-cancel>Cancel</button>
+      </div>
+      <p class="form-msg" role="status"></p>
+    </form>
+  </template>
+
+  <template id="tpl-add-topic">
+    <form class="form add-topic">
+      <h3>Propose a topic</h3>
+      <p class="muted small">A topic is the broad debate, for example “Election Commission protests” or “Online safety law”. Once it is approved, people can add statements to it.</p>
+      <label>Topic
+        <input name="title" maxlength="100" required minlength="3" placeholder="e.g. Online safety law">
       </label>
       <div class="form-actions">
         <button type="submit" class="btn btn-dark">Submit for review</button>
