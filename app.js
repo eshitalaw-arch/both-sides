@@ -326,11 +326,15 @@
   function aiParagraphs(on) {
     function p(t) { return el('p', { text: t }); }
     if (!on) return [
-      p('At the moment, Both Sides does not use AI to publish or judge anything. Reviews, notes and summaries are written by people.'),
-      p('We plan to use AI to help: checking tone when someone submits, and drafting summaries for reviewers. Any AI suggestion will be checked by a person before it appears on the site.')
+      p('Reviewers use AI tools to help with their work, and a person always makes the final decision.'),
+      el('ul', { class: 'about-list' }, [
+        el('li', {}, [el('b', { text: 'Drafting summaries. ' }), document.createTextNode('AI helps draft the “Where the discussion stands” summary for a debate. A reviewer reads it against the arguments, edits it, and only then publishes it.')]),
+        el('li', {}, [el('b', { text: 'Suggesting notes. ' }), document.createTextNode('AI helps spot arguments that may need a note, such as “Needs evidence” or a possible logical fallacy. A reviewer decides whether a note is added and what it says.')])
+      ]),
+      p('AI does not decide what is published, and it is asked to apply the same standards to every side. It can still make mistakes, so if you think a note or summary is unfair, use “Challenge this rating” or contact us.')
     ];
     return [
-      p('AI helps in two limited ways, and a person always makes the final decision.'),
+      p('AI helps in a few limited ways, and a person always makes the final decision.'),
       el('ul', { class: 'about-list' }, [
         el('li', {}, [el('b', { text: 'A tone check when you submit. ' }), document.createTextNode('If something reads as insulting, threatening or personal, AI points it out and suggests kinder wording. It never blocks you and never judges which side you are on. You can always post as written for a reviewer to decide.')]),
         el('li', {}, [el('b', { text: 'Drafts for reviewers. ' }), document.createTextNode('AI can draft the “Where the discussion stands” summary and suggest notes on arguments. Reviewers edit or discard these drafts; nothing AI writes is published without a person approving it.')])
@@ -881,6 +885,10 @@
 
   function onRoute() { applyRoute(); pickCountry(); render(); if (state.view !== 'country' || !state.focusTopic) window.scrollTo(0, 0); }
   window.addEventListener('hashchange', onRoute);
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest && e.target.closest('a[href^="#"]');
+    if (a && a.getAttribute('href') === location.hash) { e.preventDefault(); onRoute(); }
+  });
   window.addEventListener('popstate', onRoute);
 
   if (configured && window.supabase) {
