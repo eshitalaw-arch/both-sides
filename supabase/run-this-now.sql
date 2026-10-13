@@ -1,3 +1,10 @@
+-- ALREADY APPLIED. Do not run this file again: it was a one-time setup.
+do $$ begin
+  if exists (select 1 from pg_tables where schemaname = 'public' and tablename = 'decisions') then
+    raise exception 'This one-time setup has already been run. Nothing was changed.';
+  end if;
+end $$;
+
 -- ONE-TIME UPDATE (12 Oct): reviewer page + one-step debates + sample debates.
 -- Paste ALL of this into Supabase → SQL Editor → New query → Run. Run it only once.
 
