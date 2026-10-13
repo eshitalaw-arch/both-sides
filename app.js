@@ -273,7 +273,7 @@
   }
 
   // ---------- forms ----------
-  function wireForm(form, onDone, submit) {
+  function wireForm(form, onDone, submit, defaultError) {
     var msg = form.querySelector('.form-msg');
     var btn = form.querySelector('button[type="submit"]');
     form.querySelector('[data-cancel]').addEventListener('click', function () { form.remove(); onDone(); });
@@ -291,7 +291,7 @@
         console.error(err);
         btn.disabled = false;
         msg.className = 'form-msg err';
-        msg.textContent = (err && err.friendly) || 'Something went wrong. Check the length (at least 10 characters) and try again.';
+        msg.textContent = (err && err.friendly) || defaultError || 'Something went wrong. Check the length (at least 10 characters) and try again.';
       });
     });
   }
@@ -320,7 +320,7 @@
         }
         return res;
       });
-    });
+    }, 'Something went wrong sending your suggestion. Please try again in a moment.');
     setTimeout(function () { var i = form.querySelector('input'); if (i) i.focus(); }, 0);
     return form;
   }
@@ -330,7 +330,7 @@
     if (countryName) form.querySelector('h3').textContent = 'Propose a topic for ' + countryName;
     wireForm(form, onDone, function (fd) {
       return db.from('topics').insert({ country: countryCode, title: (fd.get('title') || '').trim().replace(/\s+/g, ' ') });
-    });
+    }, 'Something went wrong. Check the topic is at least 3 characters and try again.');
     setTimeout(function () { var i = form.querySelector('input'); if (i) i.focus(); }, 0);
     return form;
   }
