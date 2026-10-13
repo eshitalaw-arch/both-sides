@@ -104,6 +104,8 @@
           if (!seen[t.country]) { seen[t.country] = true; state.countries.push({ code: t.country, name: FALLBACK_NAMES[t.country] || t.country }); }
         });
       }
+      // Countries always appear in alphabetical order by name
+      state.countries.sort(function (a, b) { return String(a.name).localeCompare(String(b.name), undefined, { sensitivity: 'base' }); });
       pickCountry();
       prunePending();
       showNotice('');

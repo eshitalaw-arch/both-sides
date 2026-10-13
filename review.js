@@ -144,7 +144,7 @@
     notice('');
     return Promise.all([
       db.rpc('review_queue'),
-      db.from('countries').select('code,name,sort').order('sort'),
+      db.from('countries').select('code,name,sort').order('name'),
       db.from('topics').select('id,country,title').order('sort').order('created_at'),
       db.from('statements').select('*').order('created_at'),
       db.from('reasons').select('*').order('created_at')
@@ -152,7 +152,8 @@
       var err = r[0].error || r[1].error || r[2].error || r[3].error || r[4].error;
       if (err) throw err;
       state.queue = r[0].data;
-      state.live = { countries: r[1].data, topics: r[2].data, statements: r[3].data, reasons: r[4].data };
+      var byName = function (a, b) { return String(a.name).localeCompare(String(b.name), undefined, { sensitivity: 'base' }); };
+      state.live = { countries: r[1].data.slice().sort(byName), topics: r[2].data, statements: r[3].data, reasons: r[4].data };
       if (!state.liveCountry && state.live.countries.length) state.liveCountry = state.live.countries[0].code;
       var q = state.queue;
       var n = q.countries.length + q.topics.length + q.statements.length + q.reasons.length;
