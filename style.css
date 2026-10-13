@@ -38,7 +38,8 @@ a:hover { color: #163F70; }
 .brand { display: flex; flex-wrap: wrap; align-items: baseline; gap: 12px; }
 .brand-name { font-family: 'Fraunces', Georgia, serif; font-size: 24px; font-weight: 600; color: var(--ink); text-decoration: none; }
 .brand-tag { font-size: 13px; color: var(--muted); }
-.tabs { display: flex; gap: 4px; background: #EFEDE6; padding: 4px; border-radius: 10px; }
+.tabs { display: flex; flex-wrap: wrap; gap: 4px; background: #EFEDE6; padding: 4px; border-radius: 10px; }
+.tabs[hidden] { display: none; }
 .tab { min-height: 40px; padding: 0 16px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; }
 .tab[aria-pressed="true"] { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
 

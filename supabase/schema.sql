@@ -4,9 +4,16 @@
 
 -- 1. Tables ---------------------------------------------------------------
 
+create table if not exists countries (
+  code       text primary key check (code ~ '^[a-z0-9-]{2,40}$'),  -- short id, e.g. 'uk', 'brazil'
+  name       text not null,                                       -- shown on the tab
+  sort       int  not null default 100,                           -- lower numbers appear first
+  created_at timestamptz not null default now()
+);
+
 create table if not exists topics (
   id         bigint generated always as identity primary key,
-  country    text not null check (country in ('india', 'us')),
+  country    text not null references countries(code) on update cascade,
   title      text not null,
   sort       int  not null default 0,
   created_at timestamptz not null default now()
@@ -46,9 +53,13 @@ create table if not exists reasons (
 
 -- 2. Security: the public can read approved content and submit new items ---
 
+alter table countries  enable row level security;
 alter table topics     enable row level security;
 alter table statements enable row level security;
 alter table reasons    enable row level security;
+
+create policy "Anyone can read countries"
+  on countries for select using (true);
 
 create policy "Anyone can read topics"
   on topics for select using (true);
@@ -84,10 +95,14 @@ create policy "Anyone can submit a reason for review"
 -- Let the website (the "anon" role) read and submit, nothing more.
 -- The policies above still decide WHICH rows it can see or add.
 grant usage on schema public to anon, authenticated;
-grant select on topics, statements, reasons to anon, authenticated;
+grant select on countries, topics, statements, reasons to anon, authenticated;
 grant insert on statements, reasons to anon, authenticated;
 
 -- 3. Starting topics ---------------------------------------------------------
+
+insert into countries (code, name, sort) values
+  ('india', 'India', 1),
+  ('us',    'United States', 2);
 
 insert into topics (country, title, sort) values
   ('india', 'Election Commission protests', 1),

@@ -15,7 +15,8 @@
     strong: 'Strong'
   };
 
-  var state = { country: readCountry(), data: null, expanded: {} };
+  var tabsNav = document.getElementById('tabs');
+  var state = { country: readHash(), countries: [], data: null, expanded: {} };
   var db = null;
 
   // ---------- helpers ----------
@@ -42,9 +43,16 @@
     } catch (e) { return null; }
   }
 
-  function readCountry() {
-    var h = (location.hash || '').replace('#', '');
-    return h === 'us' ? 'us' : 'india';
+  function readHash() {
+    try { return decodeURIComponent((location.hash || '').replace('#', '')); } catch (e) { return ''; }
+  }
+
+  // Used only if the countries table hasn't been created yet.
+  var FALLBACK_NAMES = { india: 'India', us: 'United States' };
+
+  function pickCountry() {
+    var codes = state.countries.map(function (c) { return c.code; });
+    if (codes.indexOf(state.country) === -1) state.country = codes[0] || '';
   }
 
   function showNotice(msg) {
@@ -62,11 +70,23 @@
     return Promise.all([
       db.from('topics').select('id,country,title,sort').order('sort'),
       db.from('statements').select('*').eq('status', 'approved').order('created_at'),
-      db.from('reasons').select('*').eq('status', 'approved').order('created_at')
+      db.from('reasons').select('*').eq('status', 'approved').order('created_at'),
+      db.from('countries').select('code,name,sort').order('sort').order('name')
     ]).then(function (res) {
       var err = res[0].error || res[1].error || res[2].error;
       if (err) throw err;
       state.data = { topics: res[0].data, statements: res[1].data, reasons: res[2].data };
+      if (!res[3].error && res[3].data && res[3].data.length) {
+        state.countries = res[3].data;
+      } else {
+        // No countries table yet: build tabs from the topics instead.
+        var seen = {};
+        state.countries = [];
+        res[0].data.forEach(function (t) {
+          if (!seen[t.country]) { seen[t.country] = true; state.countries.push({ code: t.country, name: FALLBACK_NAMES[t.country] || t.country }); }
+        });
+      }
+      pickCountry();
       showNotice('');
       render();
     }).catch(function (e) {
@@ -78,9 +98,7 @@
 
   // ---------- rendering ----------
   function render() {
-    document.querySelectorAll('.tab').forEach(function (b) {
-      b.setAttribute('aria-pressed', b.dataset.country === state.country ? 'true' : 'false');
-    });
+    renderTabs();
     content.innerHTML = '';
     if (!state.data) return;
 
@@ -90,6 +108,22 @@
       return;
     }
     topics.forEach(function (topic) { content.appendChild(renderTopic(topic)); });
+  }
+
+  function renderTabs() {
+    tabsNav.innerHTML = '';
+    tabsNav.hidden = state.countries.length < 2;
+    state.countries.forEach(function (c) {
+      tabsNav.appendChild(el('button', {
+        type: 'button', class: 'tab', text: c.name,
+        'aria-pressed': c.code === state.country ? 'true' : 'false',
+        onclick: function () {
+          state.country = c.code;
+          history.replaceState(null, '', '#' + encodeURIComponent(c.code));
+          render();
+        }
+      }));
+    });
   }
 
   function renderTopic(topic) {
@@ -284,14 +318,7 @@
   }
 
   // ---------- start ----------
-  document.querySelectorAll('.tab').forEach(function (b) {
-    b.addEventListener('click', function () {
-      state.country = b.dataset.country;
-      history.replaceState(null, '', '#' + state.country);
-      render();
-    });
-  });
-  window.addEventListener('hashchange', function () { state.country = readCountry(); render(); });
+  window.addEventListener('hashchange', function () { state.country = readHash(); pickCountry(); render(); });
 
   if (configured && window.supabase) {
     db = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);

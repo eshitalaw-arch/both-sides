@@ -24,7 +24,10 @@ It's a plain website (HTML, CSS and JavaScript, no build step) with a Supabase d
 ## Running it day to day (Supabase → Table Editor)
 
 - **Approve something:** open `statements` or `reasons`, find the row with status `pending`, change it to `approved`. Use `rejected` to turn it down.
-- **Add a topic:** add a row to `topics` with `country` set to `india` or `us`.
+- **Add a country:** add a row to `countries`: a short `code` (lowercase, e.g. `uk`, `brazil`, `south-africa`), the `name` shown on the tab (e.g. `United Kingdom`), and a `sort` number (lower appears first). A new tab appears on the site.
+- **Add a topic:** add a row to `topics` with `country` set to one of the codes in `countries`.
+
+If your database was created before countries existed, run `supabase/add-countries.sql` once in the SQL Editor.
 - **Tag a reason:** set `tag` to one of `fallacy`, `overclaims`, `evidence`, `value`, `strong`, then fill in `tag_why` (and `tag_fix`, and `tag_detail` for the fallacy's name). Leave `tag` empty for most reasons.
 - **Write "Where the debate stands":** fill in `stands_supported`, `stands_disputed`, `stands_depends`, and optionally `stands_status` and `stands_basis` on the statement. Leave them empty to hide the strip.
 
