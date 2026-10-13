@@ -211,7 +211,7 @@
     content.appendChild(el('section', { class: 'hero' }, [
       el('p', { class: 'hero-kicker', text: 'Both Sides' }),
       el('h1', { class: 'hero-title', text: 'Every big question has more than one side.' }),
-      el('p', { class: 'hero-lead', text: 'The strongest arguments for and against the issues that matter, laid out side by side so you can decide for yourself.' }),
+      el('p', { class: 'hero-lead', text: 'Put the arguments side by side, and the bigger picture comes into view.' }),
       el('div', { class: 'hero-actions' }, [
         el('a', { class: 'btn btn-dark as-link', href: '#countries', text: 'Browse the debates', onclick: function (e) { e.preventDefault(); var t = document.getElementById('countries'); if (t) t.scrollIntoView({ behavior: 'smooth' }); } }),
         state.countries[0] ? el('a', { class: 'btn btn-plain as-link', href: '#' + state.countries[0].code, text: 'Start a debate' }) : null
