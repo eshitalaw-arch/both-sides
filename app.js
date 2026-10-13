@@ -210,8 +210,8 @@
 
     content.appendChild(el('section', { class: 'hero' }, [
       el('p', { class: 'hero-kicker', text: 'Both Sides' }),
-      el('h1', { class: 'hero-title', text: 'See both sides of the debates everyone is having.' }),
-      el('p', { class: 'hero-lead', text: 'News and posts usually show one side and ignore the other. Here, each debate is one simple table: the statement, the strongest arguments in favor, and the strongest arguments against, side by side.' }),
+      el('h1', { class: 'hero-title', text: 'Every big question has more than one side.' }),
+      el('p', { class: 'hero-lead', text: 'Both Sides is a calm, simple place to explore the issues people care about. Each debate is one clear table: a statement, the best arguments in favor, and the best arguments against, side by side. Read, reflect, and add your own view.' }),
       el('div', { class: 'hero-actions' }, [
         el('a', { class: 'btn btn-dark as-link', href: '#countries', text: 'Browse the debates', onclick: function (e) { e.preventDefault(); var t = document.getElementById('countries'); if (t) t.scrollIntoView({ behavior: 'smooth' }); } }),
         state.countries[0] ? el('a', { class: 'btn btn-plain as-link', href: '#' + state.countries[0].code, text: 'Start a debate' }) : null
@@ -227,8 +227,8 @@
     content.appendChild(el('section', { class: 'home-section', 'aria-labelledby': 'how' }, [
       el('h2', { id: 'how', text: 'How it works' }),
       el('ol', { class: 'steps' }, [
-        el('li', {}, [el('span', { class: 'step-n', text: '1' }), el('h3', { text: 'Pick a country and topic' }), el('p', { text: 'Topics are the big issues, like “Election Commission protests” or “Immigration”.' })]),
-        el('li', {}, [el('span', { class: 'step-n', text: '2' }), el('h3', { text: 'Read both sides' }), el('p', { text: 'Each debate shows the arguments for and against next to each other, so neither side is left out.' })]),
+        el('li', {}, [el('span', { class: 'step-n', text: '1' }), el('h3', { text: 'Pick a country and topic' }), el('p', { text: 'Topics are broad issues, such as housing, education or the environment.' })]),
+        el('li', {}, [el('span', { class: 'step-n', text: '2' }), el('h3', { text: 'Read both sides' }), el('p', { text: 'Each debate puts the arguments for and against next to each other, so you can weigh them for yourself.' })]),
         el('li', {}, [el('span', { class: 'step-n', text: '3' }), el('h3', { text: 'Add your argument' }), el('p', { text: 'Post anonymously or under your name. A reviewer checks every contribution before it goes live.' })])
       ])
     ]));
@@ -285,12 +285,12 @@
     }
 
     content.appendChild(el('section', { class: 'home-section fair', 'aria-labelledby': 'fair-h' }, [
-      el('h2', { id: 'fair-h', text: 'How we keep it fair' }),
+      el('h2', { id: 'fair-h', text: 'Fair to everyone' }),
       el('ul', { class: 'fair-list' }, [
-        el('li', {}, [el('b', { text: 'Reviewed first. ' }), document.createTextNode('Every debate and argument is checked by a reviewer before it appears. Abuse and personal attacks are not published.')]),
-        el('li', {}, [el('b', { text: 'Reasons, not verdicts. ' }), document.createTextNode('Some arguments carry a tag such as “Needs evidence” or “Strong”. Tap it to see why. Most carry none.')]),
-        el('li', {}, [el('b', { text: 'No winners declared. ' }), document.createTextNode('“Where the debate stands” sums up what the evidence supports and what the answer depends on. It never picks a side.')]),
-        el('li', {}, [el('b', { text: 'Your choice of name. ' }), document.createTextNode('Contribute anonymously or under your own name.')])
+        el('li', {}, [el('b', { text: 'Reviewed first. ' }), document.createTextNode('Every debate and argument is read by a reviewer before it appears, so the conversation stays respectful.')]),
+        el('li', {}, [el('b', { text: 'Explained, not judged. ' }), document.createTextNode('Some arguments carry a helpful note, such as “Needs evidence”. Tap it to see why. Most carry none.')]),
+        el('li', {}, [el('b', { text: 'No winners declared. ' }), document.createTextNode('Summaries describe what the evidence shows and what the answer depends on. They never pick a side.')]),
+        el('li', {}, [el('b', { text: 'Open to all. ' }), document.createTextNode('Take part anonymously or under your own name. Everyone is welcome.')])
       ])
     ]));
   }
