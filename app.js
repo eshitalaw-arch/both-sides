@@ -419,10 +419,11 @@
 
       section('disclaimer', 'Independence and disclaimer', [
         el('ul', { class: 'about-list' }, [
-          item('An independent platform.', 'Both Sides is a non-commercial platform for setting out arguments on public questions. It is not affiliated with any government, political party, campaign, candidate or advocacy group.'),
-          item('No positions taken.', 'Both Sides does not endorse, support or promote any position, party, candidate or cause. Its purpose is to present the arguments on each side, not to argue for one.'),
-          item('Contributors’ views are their own.', 'Debates and arguments are written by users. They reflect the views of their authors, not the views of the people who created, run or review Both Sides.'),
-          item('Approval is not agreement.', 'Approving a contribution means it meets the published rules. It does not mean the reviewers agree with it.'),
+          item('A neutral platform.', 'Both Sides is a non-commercial platform where users set out arguments on public questions. Neither the platform nor its creator is affiliated with any government, political party, campaign, candidate or advocacy group.'),
+          item('The creator takes no position.', 'The creator and the reviewers of Both Sides do not endorse, support or promote any position, party, candidate or cause, including any argument published on this site. The platform exists to present arguments from every side, not to argue for one.'),
+          item('All content is written by users.', 'Every debate and argument on Both Sides is written by a user and reflects only that user’s views. Nothing published here represents the personal views of the platform’s creator or reviewers.'),
+          item('Approval is not agreement.', 'When a reviewer approves a contribution, it only means the contribution meets the published rules. It does not mean the creator or reviewers agree with it.'),
+          item('Notes and summaries are not opinions on the issue.', 'Notes and “Where the discussion stands” summaries describe how the arguments are made and what the evidence shows. They do not express the creator’s or reviewers’ view on the question.'),
           item('Information only.', 'Content on Both Sides is for information and discussion. It is not legal, financial or professional advice.')
         ])
       ]),
