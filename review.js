@@ -6,7 +6,7 @@
 
   var $ = function (id) { return document.getElementById(id); };
   var view = $('view');
-  var state = { view: 'queue', queue: null, live: null, liveCountry: null, signup: false, notes: {} };
+  var state = { view: 'queue', queue: null, live: null, liveCountry: null, signup: false, notes: {}, aiOn: false, editingNote: null };
 
   // ---------- helpers ----------
   function el(tag, attrs, children) {
@@ -118,6 +118,42 @@
   });
 
   $('sign-out').addEventListener('click', function () { db.auth.signOut().then(function () { showSignin(); }); });
+
+  fetch('/api/check').then(function (r) { return r.ok ? r.json() : {}; }).catch(function () { return {}; })
+    .then(function (out) { state.aiOn = !!(out && out.enabled); if (state.queue) render(); });
+
+  // Manual note editor (works without AI)
+  function noteEditor(r) {
+    var form = el('form', { class: 'form note-form' }, [
+      el('label', {}, [document.createTextNode('Note '),
+        el('select', { name: 'tag' }, [['none', 'No note'], ['evidence', 'Needs evidence'], ['overclaims', 'Overclaims'], ['fallacy', 'Possible fallacy'], ['value', 'Value difference'], ['strong', 'Strong']]
+          .map(function (o) { return el('option', { value: o[0], text: o[1] }); }))]),
+      el('label', { class: 'fallacy-name' }, [document.createTextNode('Which fallacy? '), el('span', { class: 'muted', text: '(e.g. Personal attack)' }), el('input', { name: 'detail', maxlength: '60' })]),
+      el('label', {}, [document.createTextNode('Why '), el('span', { class: 'muted', text: '(one sentence readers will see)' }), el('textarea', { name: 'why', rows: '2', maxlength: '400' })]),
+      el('label', {}, [document.createTextNode('To improve it '), el('span', { class: 'muted', text: '(optional)' }), el('textarea', { name: 'fix', rows: '2', maxlength: '400' })]),
+      el('div', { class: 'form-actions' }, [
+        el('button', { type: 'submit', class: 'btn btn-approve', text: 'Save note' }),
+        el('button', { type: 'button', class: 'btn btn-reject', text: 'Cancel', onclick: function () { state.editingNote = null; render(); } })
+      ])
+    ]);
+    var sel = form.querySelector('select');
+    sel.value = r.tag || 'none';
+    form.querySelector('[name=detail]').value = r.tag_detail || '';
+    form.querySelector('[name=why]').value = r.tag_why || '';
+    form.querySelector('[name=fix]').value = r.tag_fix || '';
+    var sync = function () { form.querySelector('.fallacy-name').hidden = sel.value !== 'fallacy'; };
+    sel.addEventListener('change', sync); sync();
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var fd = new FormData(form);
+      busy(null, function () {
+        return setNote(r.id, { tag: fd.get('tag'), detail: fd.get('detail'), why: fd.get('why'), fix: fd.get('fix') }).then(function () {
+          state.editingNote = null; flash(fd.get('tag') === 'none' ? 'Note removed.' : 'Note saved and live.'); return refresh();
+        });
+      })();
+    });
+    return form;
+  }
 
   function start() {
     db.auth.getSession().then(function (r) {
@@ -343,13 +379,14 @@
               list.length ? list.map(function (r) {
                 var block = argBlock(r, [el('button', { type: 'button', class: 'btn-small btn-delete', text: 'Delete',
                   onclick: busy(null, function () { return remove('reason', r.id, r.text); }) })]);
-                if (r.tag) {
-                  block.appendChild(el('div', { class: 'note-current' }, [
-                    el('span', { text: 'Note: ' + (NOTE_NAMES[r.tag] || r.tag) + (r.tag_detail ? ' (' + r.tag_detail + ')' : '') }),
-                    el('button', { type: 'button', class: 'btn-small btn-reject', text: 'Remove note',
-                      onclick: busy(null, function () { return setNote(r.id, { tag: 'none' }).then(function () { flash('Note removed.'); return refresh(); }); }) })
-                  ]));
-                }
+                block.appendChild(el('div', { class: 'note-current' }, [
+                  el('span', { text: r.tag ? 'Note: ' + (NOTE_NAMES[r.tag] || r.tag) + (r.tag_detail ? ' (' + r.tag_detail + ')' : '') : 'No note' }),
+                  el('button', { type: 'button', class: 'btn-small btn-reject', text: r.tag ? 'Edit note' : 'Add note',
+                    onclick: function () { state.editingNote = r.id; render(); } }),
+                  r.tag ? el('button', { type: 'button', class: 'btn-small btn-reject', text: 'Remove note',
+                    onclick: busy(null, function () { return setNote(r.id, { tag: 'none' }).then(function () { flash('Note removed.'); return refresh(); }); }) }) : null
+                ]));
+                if (state.editingNote === r.id) block.appendChild(noteEditor(r));
                 var sug = (state.notes[s.id] || []).filter(function (n) { return n.id === r.id; })[0];
                 if (sug) {
                   block.appendChild(el('div', { class: 'note-suggest' }, [
@@ -373,7 +410,7 @@
                 return block;
               }) : [el('span', { class: 'muted small', text: 'No arguments.' })]));
           })),
-          args.length ? el('div', { class: 'actions' }, [
+          state.aiOn && args.length ? el('div', { class: 'actions' }, [
             el('button', { type: 'button', class: 'btn-small btn-reject', text: 'Suggest notes with AI',
               onclick: busy(null, function () {
                 return assist('notes', s.id).then(function (out) {
@@ -429,7 +466,7 @@
           el('input', { name: 'status', maxlength: '80' })]),
         el('p', { class: 'ai-draft-note muted small', hidden: true, text: 'AI draft. Read it carefully and edit before saving.' }),
         el('div', { class: 'form-actions' }, [
-          el('button', { type: 'button', class: 'btn btn-reject ai-draft-btn', text: 'Draft with AI', onclick: function () {
+          !state.aiOn ? null : el('button', { type: 'button', class: 'btn btn-reject ai-draft-btn', text: 'Draft with AI', onclick: function () {
             var b = form.querySelector('.ai-draft-btn'); b.disabled = true; b.textContent = 'Drafting…';
             assist('summary', s.id).then(function (out) {
               form.querySelector('[name=supported]').value = out.supported || '';
