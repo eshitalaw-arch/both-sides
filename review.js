@@ -444,7 +444,7 @@
             el('div', {}, [el('b', { text: 'Step 1: Copy this debate for the AI. ' }), document.createTextNode('It includes the fixed public instructions, so every draft follows the same rules.')]),
             el('div', { class: 'actions' }, [
               el('button', { type: 'button', class: 'btn btn-dark ai-copy', text: 'Copy debate for AI', onclick: function () {
-                var done = function () { copied.textContent = 'Copied. Now paste it into a chat with Claude (claude.ai) and send it.'; };
+                var done = function () { copied.textContent = 'Copied. Now paste it into any AI chat (for example Claude, ChatGPT or Gemini) and send it.'; };
                 if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, function () { copied.textContent = 'Copy failed. Use “Show the text” below.'; });
                 else copied.textContent = 'Use “Show the text” below to copy it.';
               } }),
