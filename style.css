@@ -289,3 +289,15 @@ details.topic { display: flex; flex-direction: column; }
 .instructions pre { margin: 0; padding: 0 16px 16px; white-space: pre-wrap; font-family: inherit; font-size: 14px; line-height: 1.6; color: var(--ink-2); }
 
 .hero-topics { margin: 0; font-size: 15px; color: var(--muted); }
+
+/* Follow (browser only) */
+.follow-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 6px; }
+.follow-btn { min-height: 34px; padding: 0 12px; border: 1px solid #C9C5BA; border-radius: 999px; background: #fff; color: var(--ink-2); font: inherit; font-size: 13px; font-weight: 500; cursor: pointer; }
+.follow-btn:hover { border-color: var(--ink-2); }
+.follow-btn.is-on { background: #FFF6DA; border-color: #E3C77A; color: #6E4F00; }
+.news-badge { display: inline-block; padding: 2px 10px; border-radius: 999px; background: #E3F1E7; color: #1E5A32; font-size: 12px; font-weight: 600; }
+.new-pill { padding: 0 7px; border-radius: 999px; background: #1E5A32; color: #fff; font-size: 11px; font-weight: 600; line-height: 18px; }
+.reason.is-new > span:first-child { background: #F2F9F4; box-shadow: 0 0 0 4px #F2F9F4; border-radius: 4px; }
+.following-list .news-badge { align-self: flex-start; }
+.topic-summary .news-badge { flex: none; }
+.site-nav a[hidden] { display: none; }

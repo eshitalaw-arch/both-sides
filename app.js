@@ -52,6 +52,7 @@
   function applyRoute() {
     var h = readHash();
     if (!h || h === 'home') { state.view = 'home'; state.country = ''; state.focusTopic = null; return; }
+    if (h === 'following') { state.view = 'following'; state.country = ''; state.focusTopic = null; return; }
     if (h === 'disclaimer' || h === 'about/disclaimer') { state.view = 'disclaimer'; state.country = ''; state.focusTopic = null; return; }
     if (h === 'about' || h.indexOf('about/') === 0) {
       state.view = 'about'; state.country = ''; state.focusTopic = null;
@@ -62,6 +63,7 @@
     state.view = 'country';
     state.country = parts[0];
     state.focusTopic = parts[1] || null;
+    state.focusDebate = parts[2] || null;
     if (state.focusTopic) state.open['t' + state.focusTopic] = true;
   }
 
@@ -108,6 +110,7 @@
       state.countries.sort(function (a, b) { return String(a.name).localeCompare(String(b.name), undefined, { sensitivity: 'base' }); });
       pickCountry();
       prunePending();
+      computeNews();
       showNotice('');
       render();
     }).catch(function (e) {
@@ -150,6 +153,108 @@
     }));
   }
 
+  // ---------- Follow (saved only in this browser; nothing is sent anywhere) ----------
+  var FOLLOW_KEY = 'bothSides.follow.v1';
+  function readFollows() {
+    try { var f = JSON.parse(localStorage.getItem(FOLLOW_KEY) || '{}'); return (f && typeof f === 'object' && !Array.isArray(f)) ? f : {}; } catch (e) { return {}; }
+  }
+  function writeFollows(f) { try { localStorage.setItem(FOLLOW_KEY, JSON.stringify(f)); } catch (e) { /* storage blocked */ } }
+  function argIds(sid) { return state.data.reasons.filter(function (r) { return r.statement_id === sid; }).map(function (r) { return r.id; }); }
+  function debateSnapshot(s) { return { seen: argIds(s.id), summary: s.stands_reviewed_at || null, at: Date.now() }; }
+  function isFollowing(sid) { return !!readFollows()[sid]; }
+  function toggleFollow(s) {
+    var f = readFollows();
+    if (f[s.id]) delete f[s.id]; else f[s.id] = debateSnapshot(s);
+    writeFollows(f);
+  }
+  // Work out what is new since the last visit, once per page load, then remember it for this session.
+  function computeNews() {
+    var f = readFollows(), news = {}, changed = false;
+    Object.keys(f).forEach(function (sid) {
+      var s = state.data.statements.filter(function (x) { return String(x.id) === sid; })[0];
+      if (!s) { delete f[sid]; changed = true; return; }     // debate removed: stop following
+      var seen = f[sid].seen || [];
+      var fresh = argIds(s.id).filter(function (id) { return seen.indexOf(id) === -1; });
+      var newSummary = !!(s.stands_reviewed_at && s.stands_reviewed_at !== f[sid].summary);
+      news[sid] = { args: fresh, summary: newSummary };
+    });
+    if (changed) writeFollows(f);
+    state.news = news;
+  }
+  // Once a followed debate has been shown, its current state counts as seen for next time.
+  function markSeen(s) {
+    var f = readFollows();
+    if (!f[s.id]) return;
+    f[s.id] = debateSnapshot(s);
+    writeFollows(f);
+  }
+  function newsFor(sid) { return (state.news && state.news[sid]) || { args: [], summary: false }; }
+  function newsCount(sid) { var n = newsFor(sid); return n.args.length + (n.summary ? 1 : 0); }
+  function newsLabel(sid) {
+    var n = newsFor(sid), bits = [];
+    if (n.args.length) bits.push(n.args.length + (n.args.length === 1 ? ' new argument' : ' new arguments'));
+    if (n.summary) bits.push('updated summary');
+    return bits.length ? bits.join(' and ') + ' since your last visit' : '';
+  }
+
+  function followButton(s) {
+    var on = isFollowing(s.id);
+    return el('button', {
+      type: 'button', class: 'follow-btn' + (on ? ' is-on' : ''), 'aria-pressed': on ? 'true' : 'false',
+      title: on ? 'Stop following this debate' : 'Follow this debate (saved only in this browser)',
+      text: on ? '★ Following' : '☆ Follow',
+      onclick: function () {
+        toggleFollow(s);
+        render();
+        flash(isFollowing(s.id)
+          ? 'Following. Next time you visit, new arguments on this debate will be marked. This is saved only in this browser.'
+          : 'You are no longer following this debate.');
+      }
+    });
+  }
+
+  function followedDebates() {
+    var f = readFollows();
+    return state.data.statements.filter(function (s) { return f[s.id]; }).map(function (s) {
+      var t = state.data.topics.filter(function (x) { return x.id === s.topic_id; })[0];
+      var c = t && state.countries.filter(function (x) { return x.code === t.country; })[0];
+      return { s: s, t: t, c: c };
+    }).filter(function (x) { return x.t; }).sort(function (a, b) { return newsCount(b.s.id) - newsCount(a.s.id); });
+  }
+
+  function followingList(items) {
+    return el('ul', { class: 'latest following-list' }, items.map(function (x) {
+      var label = newsLabel(x.s.id);
+      return el('li', {}, [el('a', { href: '#' + x.t.country + '/' + x.t.id + '/' + x.s.id }, [
+        el('span', { class: 'crumb', text: (x.c ? x.c.name : x.t.country) + ' › ' + x.t.title }),
+        el('span', { class: 'latest-text', text: x.s.text }),
+        el('span', { class: label ? 'news-badge' : 'muted small', text: label || 'No new activity since your last visit' })
+      ])]);
+    }));
+  }
+
+  function renderFollowingPage() {
+    var items = followedDebates();
+    content.appendChild(el('div', { class: 'country-head' }, [
+      el('h1', { text: 'Following' }),
+      el('p', { class: 'sub', text: 'Debates you follow, with what is new since your last visit. Your follow list is saved only in this browser on this device. It is never sent to Both Sides.' })
+    ]));
+    if (!items.length) {
+      content.appendChild(el('p', { class: 'empty', text: 'You are not following any debates yet. Use “☆ Follow” on any debate to keep track of it here.' }));
+      return;
+    }
+    content.appendChild(followingList(items));
+  }
+
+  function updateFollowNav() {
+    var a = document.getElementById('nav-following');
+    if (!a) return;
+    var n = Object.keys(readFollows()).length;
+    a.hidden = !n;
+    var fresh = state.news ? Object.keys(state.news).reduce(function (t, k) { return t + newsCount(k); }, 0) : 0;
+    a.textContent = fresh ? 'Following (' + fresh + ' new)' : 'Following';
+  }
+
   function waitingBadge() {
     return el('span', { class: 'waiting', text: 'Waiting for review · only you can see this' });
   }
@@ -157,6 +262,7 @@
   // ---------- rendering ----------
   function render() {
     renderTabs();
+    if (state.data) updateFollowNav();
     renderCountryNotes();
     content.innerHTML = '';
     if (!state.data) return;
@@ -165,6 +271,7 @@
       if (a.dataset.nav === state.view) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
     });
     if (state.view === 'home') { renderHome(); return; }
+    if (state.view === 'following') { renderFollowingPage(); return; }
     if (state.view === 'disclaimer') { renderDisclaimer(); return; }
     if (state.view === 'about') {
       renderAbout();
@@ -177,8 +284,12 @@
 
     var country = currentCountry();
     if (state.focusTopic) {
-      var target = state.focusTopic;
-      setTimeout(function () { var t = document.getElementById('topic-t' + target); if (t) t.scrollIntoView({ block: 'start' }); }, 0);
+      var target = state.focusTopic, debate = state.focusDebate;
+      setTimeout(function () {
+        var t = (debate && document.getElementById('debate-' + debate)) || document.getElementById('topic-t' + target);
+        if (t && t.scrollIntoView) t.scrollIntoView({ block: 'start' });
+      }, 0);
+      state.focusDebate = null;
       state.focusTopic = null;
     }
     var topics = state.data.topics.filter(function (t) { return t.country === state.country; });
@@ -244,6 +355,16 @@
         el('li', {}, [el('b', { text: String(nArgs) }), el('span', { text: nArgs === 1 ? ' argument' : ' arguments' })])
       ])
     ]));
+
+    var followed = followedDebates();
+    if (followed.length) {
+      content.appendChild(el('section', { class: 'home-section', 'aria-labelledby': 'following-h' }, [
+        el('h2', { id: 'following-h', text: 'Following' }),
+        followingList(followed.slice(0, 5)),
+        followed.length > 5 ? el('a', { href: '#following', text: 'See all ' + followed.length + ' debates you follow →' }) : null,
+        el('p', { class: 'muted small', text: 'Saved only in this browser. Nothing is sent to Both Sides.' })
+      ]));
+    }
 
     var countriesSec = el('section', { class: 'home-section', id: 'countries', 'aria-labelledby': 'countries-h' }, [
       el('h2', { id: 'countries-h', text: 'Explore by country' })
@@ -407,8 +528,13 @@
         el('ol', { class: 'steps' }, [
           el('li', {}, [el('span', { class: 'step-n', text: '1' }), el('h3', { text: 'Countries and topics' }), el('p', { text: 'Debates are grouped by country, then by topic: a broad issue in politics, technology, law, health, education or anything else.' })]),
           el('li', {}, [el('span', { class: 'step-n', text: '2' }), el('h3', { text: 'One table per debate' }), el('p', { text: 'A statement, with arguments in favor on one side and arguments against on the other.' })]),
-          el('li', {}, [el('span', { class: 'step-n', text: '3' }), el('h3', { text: 'Anyone can contribute' }), el('p', { text: 'Suggest a country, start a debate or add an argument, anonymously or under your name.' })])
+          el('li', {}, [el('span', { class: 'step-n', text: '3' }), el('h3', { text: 'Anyone can contribute' }), el('p', { text: 'Suggest a country, start a debate or add an argument, anonymously or under your name. Follow any debate to see what is new when you return.' })])
         ])
+      ]),
+
+      section('follow', 'Following a debate', [
+        para('Press “☆ Follow” on any debate to keep track of it. When you come back, new arguments and updated summaries are marked, and the Following page lists everything you follow.'),
+        para('Your follow list is saved only in your own browser, on this device. It is never sent to Both Sides, and no email address or account is needed. Clearing your browser data removes it.')
       ]),
 
       section('review', 'How contributions are reviewed', [
@@ -529,9 +655,15 @@
 
   function renderTopic(topic, pending, onlyOne) {
     var stmts = state.data.statements.filter(function (s) { return s.topic_id === topic.id; });
+    var fresh = stmts.reduce(function (n, s) { return n + (isFollowing(s.id) ? newsCount(s.id) : 0); }, 0);
     var shell = topicShell('t' + topic.id, topic.title,
-      stmts.length ? stmts.length + (stmts.length === 1 ? ' debate' : ' debates') : 'No debates yet', null, onlyOne || pending.length > 0);
+      stmts.length ? stmts.length + (stmts.length === 1 ? ' debate' : ' debates') : 'No debates yet',
+      fresh ? el('span', { class: 'news-badge', text: fresh + ' new' }) : null, onlyOne || pending.length > 0 || fresh > 0);
     var section = shell.body;
+    // Followed debates count as seen once their topic is open on screen.
+    var markAll = function () { stmts.forEach(markSeen); };
+    if (shell.details.open) markAll();
+    shell.details.addEventListener('toggle', function () { if (shell.details.open) markAll(); });
 
     if (!stmts.length && !pending.length) {
       section.appendChild(el('p', { class: 'empty', text: 'No debates in this topic yet. Add the first one.' }));
@@ -559,9 +691,12 @@
   }
 
   function renderStatement(s) {
-    var card = el('article', { class: 'card' });
+    var card = el('article', { class: 'card', id: 'debate-' + s.id });
     var row = el('div', { class: 'card-row' });
-    row.appendChild(statementCell(s.text, s.context));
+    var cell = statementCell(s.text, s.context);
+    var label = isFollowing(s.id) ? newsLabel(s.id) : '';
+    cell.appendChild(el('div', { class: 'follow-row' }, [followButton(s), label ? el('span', { class: 'news-badge', text: label }) : null]));
+    row.appendChild(cell);
     row.appendChild(renderSide(s, 'favor', 'In favor'));
     row.appendChild(renderSide(s, 'against', 'Against'));
     card.appendChild(row);
@@ -591,7 +726,8 @@
     var all = state.data.reasons.filter(function (r) { return r.statement_id === s.id && r.side === side; });
     var mine = readPending().filter(function (p) { return p.type === 'argument' && p.statementId === s.id && p.side === side; });
     var key = s.id + side;
-    var showAll = !!state.expanded[key];
+    var hiddenNew = all.slice(2).some(function (r) { return newsFor(s.id).args.indexOf(r.id) !== -1; });
+    var showAll = state.expanded[key] !== undefined ? !!state.expanded[key] : hiddenNew;
     var shown = showAll ? all : all.slice(0, 2);
     var word = side === 'favor' ? 'in favor' : 'against';
 
@@ -601,7 +737,12 @@
       cell.appendChild(el('p', { class: 'no-reasons', text: 'No arguments yet.' }));
     } else {
       var list = el('ol', { class: 'reasons' });
-      shown.forEach(function (r) { list.appendChild(renderReason(r)); });
+      var freshIds = newsFor(s.id).args;
+      shown.forEach(function (r) {
+        var li = renderReason(r);
+        if (freshIds.indexOf(r.id) !== -1) { li.classList.add('is-new'); li.querySelector('.reason-meta').prepend(el('span', { class: 'new-pill', text: 'New' })); }
+        list.appendChild(li);
+      });
       mine.forEach(function (p) {
         list.appendChild(el('li', { class: 'reason pending' }, [el('span', { text: p.text }),
           el('div', { class: 'reason-meta' }, [waitingBadge()])]));
