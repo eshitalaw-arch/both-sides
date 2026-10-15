@@ -8,9 +8,9 @@ const I = require('../ai-instructions.js');
 
 const SUMMARY = I.general + '\n\n' + I.summary + '\nReply with JSON only: {"supported": "...", "disputed": "...", "resolve": "..."}';
 
-const NOTES = I.general + '\n\n' + I.notes + '\nUse lowercase tags in JSON (fallacy, overclaims, evidence, value, strong, none).\nReply with JSON only: {"notes": [{"id": <argument number>, "tag": "...", "detail": "", "why": "", "fix": ""}]}';
+const NOTES = I.general + '\n\n' + I.notes + '\nUse lowercase tags in JSON (keep, fallacy, overclaims, evidence, value, strong, none). An argument with a current_note shows its published note.\nReply with JSON only: {"notes": [{"id": <argument number>, "tag": "...", "detail": "", "why": "", "fix": ""}]}';
 
-const TAGS = ['fallacy', 'overclaims', 'evidence', 'value', 'strong', 'none'];
+const TAGS = ['keep', 'fallacy', 'overclaims', 'evidence', 'value', 'strong', 'none'];
 
 module.exports = async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
@@ -26,12 +26,12 @@ module.exports = async function handler(req, res) {
     const stmt = (await dbGet('statements?select=id,text,context,topic_id&id=eq.' + id))[0];
     if (!stmt) return res.status(404).json({ error: 'Debate not found (it must be live).' });
     const topic = (await dbGet('topics?select=title&id=eq.' + stmt.topic_id))[0] || {};
-    const args = await dbGet('reasons?select=id,side,text,source_label,source_url&statement_id=eq.' + id + '&order=id');
+    const args = await dbGet('reasons?select=id,side,text,source_label,source_url,tag,tag_detail,tag_why&statement_id=eq.' + id + '&order=id');
     const debate = {
       topic: topic.title || '',
       statement: stmt.text,
       context: stmt.context || '',
-      arguments: args.map(a => ({ id: a.id, side: a.side === 'favor' ? 'in favor' : 'against', text: a.text, source: a.source_label || a.source_url || '' }))
+      arguments: args.map(a => ({ id: a.id, side: a.side === 'favor' ? 'in favor' : 'against', text: a.text, source: a.source_label || a.source_url || '', current_note: a.tag ? { type: a.tag, name: a.tag_detail || '', why: a.tag_why || '' } : null }))
     };
     const input = 'Debate (JSON):\n' + JSON.stringify(debate);
 

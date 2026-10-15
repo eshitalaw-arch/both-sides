@@ -354,19 +354,21 @@
                 ]));
                 var sug = (state.notes[s.id] || []).filter(function (n) { return n.id === r.id; })[0];
                 if (sug) {
-                  block.appendChild(el('div', { class: 'note-suggest' }, [
-                    el('div', {}, [el('b', { text: 'AI draft: ' + NOTE_NAMES[sug.tag] + (sug.detail ? ' (' + sug.detail + ')' : '') })]),
+                  var removing = sug.tag === 'none';
+                  block.appendChild(el('div', { class: 'note-suggest' + (removing ? ' is-removal' : '') }, [
+                    el('div', {}, [el('b', { text: removing ? 'AI suggests removing the current note' : (r.tag ? 'AI suggests changing the note to: ' : 'AI draft: ') + (removing ? '' : NOTE_NAMES[sug.tag] + (sug.detail ? ' (' + sug.detail + ')' : '')) })]),
+                    removing ? el('div', { class: 'muted small', text: 'The current note stays unless you remove it.' }) : null,
                     sug.why ? el('div', { text: 'Why: ' + sug.why }) : null,
                     sug.fix ? el('div', { text: 'To improve: ' + sug.fix }) : null,
                     el('div', { class: 'actions' }, [
-                      sug.tag !== 'none' || r.tag ? el('button', { type: 'button', class: 'btn-small btn-approve', text: sug.tag === 'none' ? 'Publish (remove note)' : 'Publish as written',
+                      el('button', { type: 'button', class: removing ? 'btn-small btn-delete' : 'btn-small btn-approve', text: removing ? 'Remove the note' : 'Publish as written',
                         onclick: busy(null, function () {
                           return setNote(r.id, sug).then(function () {
                             state.notes[s.id] = state.notes[s.id].filter(function (n) { return n.id !== r.id; });
                             flash('Note saved and live.'); return refresh();
                           });
-                        }) }) : null,
-                      el('button', { type: 'button', class: 'btn-small btn-reject', text: 'Discard', onclick: function () {
+                        }) }),
+                      el('button', { type: 'button', class: 'btn-small btn-reject', text: removing ? 'Keep current note' : 'Discard', onclick: function () {
                         state.notes[s.id] = state.notes[s.id].filter(function (n) { return n.id !== r.id; }); render();
                       } })
                     ])
@@ -413,14 +415,20 @@
 
     var debate = {
       topic: topic.title, statement: s.text, context: s.context,
-      arguments: args.map(function (r) { return { id: r.id, side: r.side, text: r.text, source: r.source_label || r.source_url || '' }; })
+      arguments: args.map(function (r) { return { id: r.id, side: r.side, text: r.text, source: r.source_label || r.source_url || '', note: r.tag || '', noteDetail: r.tag_detail || '', noteWhy: r.tag_why || '' }; })
     };
     var draft = state.drafts[s.id];
     var panel = el('div', { class: 'ai-panel' });
 
     function useDraft(out) {
       state.drafts[s.id] = { supported: out.supported || '', disputed: out.disputed || '', resolve: out.resolve || '' };
-      state.notes[s.id] = (out.notes || []).filter(function (n) { return args.some(function (a) { return a.id === n.id; }); });
+      // Only keep suggestions that would change something: KEEP, or NONE on an argument with no note, need no action.
+      state.notes[s.id] = (out.notes || []).filter(function (n) {
+        var a = args.filter(function (x) { return x.id === n.id; })[0];
+        if (!a || n.tag === 'keep') return false;
+        if (n.tag === 'none') return !!a.tag;
+        return !(a.tag === n.tag && (a.tag_detail || '') === (n.detail || '') && (a.tag_why || '') === (n.why || ''));
+      });
       render();
     }
 
@@ -482,13 +490,13 @@
     } else {
       var status = el('input', { maxlength: '80', placeholder: 'e.g. No new arguments since 8 Oct' });
       status.value = s.stands_status || '';
-      var nNotes = (state.notes[s.id] || []).filter(function (n) { return n.tag !== 'none'; }).length;
+      var nNotes = (state.notes[s.id] || []).length;
       panel.appendChild(el('div', { class: 'draft' }, [
         el('div', { class: 'draft-title', text: 'AI draft, exactly as written' }),
         el('p', {}, [el('b', { text: 'What the evidence supports: ' }), document.createTextNode(draft.supported || '—')]),
         el('p', {}, [el('b', { text: 'Still disputed: ' }), document.createTextNode(draft.disputed || '—')]),
         el('p', {}, [el('b', { text: 'What would help resolve it: ' }), document.createTextNode(draft.resolve || '—')]),
-        el('p', { class: 'muted small', text: nNotes ? 'The AI also suggested ' + nNotes + (nNotes === 1 ? ' note' : ' notes') + '. Each one is shown under its argument above, with Publish and Discard buttons.' : 'The AI suggested no notes for these arguments.' })
+        el('p', { class: 'muted small', text: nNotes ? 'The AI also suggested ' + nNotes + (nNotes === 1 ? ' change' : ' changes') + ' to notes. Each one is shown under its argument above. Existing notes stay unless you choose otherwise.' : 'The AI suggested no changes to notes. Existing notes stay as they are.' })
       ]));
       panel.appendChild(el('label', { class: 'status-label' }, [document.createTextNode('Status label '), el('span', { class: 'muted', text: '(optional, factual only)' }), status]));
       panel.appendChild(el('div', { class: 'actions' }, [

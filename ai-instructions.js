@@ -22,14 +22,15 @@
     '3. EVIDENCE: a key factual claim has no source. Arguments about values or priorities do not need a source.\n' +
     '4. VALUE: not a weakness; the disagreement is about priorities rather than facts.\n' +
     '5. STRONG: only if directly on point, supported by a source or checkable fact, and soundly argued.\n' +
-    'For each note give WHY (one sentence readers will see) and, except for VALUE and STRONG, FIX (one sentence on how to improve it). For STRONG, WHY should also say what the argument does not prove.';
+    'For each note give WHY (one sentence readers will see) and, except for VALUE and STRONG, FIX (one sentence on how to improve it). For STRONG, WHY should also say what the argument does not prove.\n' +
+    'Some arguments already have a published note, shown as [current note: ...]. Reply KEEP for those unless the current note is clearly wrong; only then suggest a different note, or NONE to remove it.';
 
   I.replyFormat =
     'Reply in exactly this format and nothing else:\n' +
     'SUPPORTED: ...\n' +
     'DISPUTED: ...\n' +
     'RESOLVE: ...\n' +
-    'NOTE #<argument number>: <NONE, FALLACY, OVERCLAIMS, EVIDENCE, VALUE or STRONG> | <fallacy name, or leave blank> | <why> | <fix, or leave blank>\n' +
+    'NOTE #<argument number>: <KEEP, NONE, FALLACY, OVERCLAIMS, EVIDENCE, VALUE or STRONG> | <fallacy name, or leave blank> | <why> | <fix, or leave blank>\n' +
     '(one NOTE line for every argument)';
 
   // What the public sees on the About page.
@@ -42,7 +43,8 @@
     if (d.context) lines.push('Context: ' + d.context);
     lines.push('Arguments:');
     (d.arguments || []).forEach(function (a) {
-      lines.push('#' + a.id + ' (' + (a.side === 'favor' ? 'in favor' : 'against') + '): ' + a.text + (a.source ? ' [source: ' + a.source + ']' : ''));
+      var cur = a.note ? ' [current note: ' + a.note.toUpperCase() + (a.noteDetail ? ' (' + a.noteDetail + ')' : '') + (a.noteWhy ? ': ' + a.noteWhy : '') + ']' : '';
+      lines.push('#' + a.id + ' (' + (a.side === 'favor' ? 'in favor' : 'against') + '): ' + a.text + (a.source ? ' [source: ' + a.source + ']' : '') + cur);
     });
     return lines.join('\n');
   };
@@ -50,7 +52,7 @@
   // Read an AI reply in the format above.
   I.parseReply = function (text) {
     var out = { supported: '', disputed: '', resolve: '', notes: [] };
-    var map = { FALLACY: 'fallacy', OVERCLAIMS: 'overclaims', EVIDENCE: 'evidence', VALUE: 'value', STRONG: 'strong', NONE: 'none' };
+    var map = { FALLACY: 'fallacy', OVERCLAIMS: 'overclaims', EVIDENCE: 'evidence', VALUE: 'value', STRONG: 'strong', NONE: 'none', KEEP: 'keep' };
     String(text || '').split(/\r?\n/).forEach(function (raw) {
       var line = raw.replace(/\*\*/g, '').replace(/^[\s>*-]+/, '').trim();
       var m;

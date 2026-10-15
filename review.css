@@ -75,3 +75,5 @@
 .draft p { margin: 0; font-size: 14px; }
 .status-label { display: block; font-size: 14px; font-weight: 600; }
 .status-label input { display: block; margin-top: 6px; font-weight: 400; }
+
+.note-suggest.is-removal { background: #FDF3F2; border-color: #EDBDB8; }
